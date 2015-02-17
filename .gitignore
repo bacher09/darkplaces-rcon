@@ -1,0 +1,8 @@
+*.sw[op]
+*.hi
+*.o
+dist/
+.cabal-sandbox/
+cabal.sandbox.config
+*.prof
+test.html
