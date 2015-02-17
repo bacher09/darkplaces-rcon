@@ -4,12 +4,17 @@ import Data.Byteable
 import Data.Monoid
 import Text.Printf
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy as BL
 
 
 quakePacketHeader :: B.ByteString
 quakePacketHeader = B.pack [0xFF, 0xFF, 0xFF, 0xFF]
+
+
+challangePacket :: B.ByteString
+challangePacket = B.append quakePacketHeader $ BC.pack "getchallenge"
 
 
 hmacMD4 :: B.ByteString -> B.ByteString -> B.ByteString
@@ -37,3 +42,14 @@ rconSecureTimePacket t passw command = BB.toLazyByteString builder
                        BB.string7 "srcon HMAC-MD4 TIME ",
                        key, BB.char7 ' ',
                        BB.byteString time_command_str]
+
+
+rconSecureChallangePacket :: B.ByteString -> B.ByteString -> B.ByteString -> BL.ByteString
+rconSecureChallangePacket challenge passw command = BB.toLazyByteString builder
+  where
+    hmac_key = BL.toStrict $ BL.fromChunks [challenge, BC.pack " ", command]
+    key = BB.byteString $ hmacMD4 passw hmac_key
+    builder = mconcat [BB.byteString quakePacketHeader,
+                       BB.string7 "srcon HMAC-MD4 CHALLENGE ",
+                       key, BB.char7 ' ', BB.byteString challenge,
+                       BB.char7 ' ', BB.byteString command]
