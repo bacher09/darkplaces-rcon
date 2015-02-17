@@ -20,6 +20,7 @@ library
   build-depends:       base >=4.7 && <4.8,
                        bytestring >=0.10 && <0.11,
                        cryptohash >= 0.11 && <0.12,
+                       network >= 2.6,
                        byteable
 
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing
