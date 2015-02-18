@@ -13,6 +13,7 @@ import Network.Socket.ByteString as NB
 import qualified Network.Socket.ByteString.Lazy as NBL
 import Data.IORef
 import Data.Time.Clock.POSIX (getPOSIXTime)
+import Control.Monad
 
 
 data RconMode = NonSecureRcon
@@ -167,9 +168,7 @@ isConnected = N.isConnected . connSocket
 
 
 send :: RconConnection -> B.ByteString -> IO ()
-send conn command = do
-    _ <- NBL.send (connSocket conn) =<< rconPacket
-    return ()
+send conn command = void $ NBL.send (connSocket conn) =<< rconPacket
   where
     rconNonsec rcon = rconNonSecurePacket (rconPassword rcon) command
     rconSecTime rcon = do
