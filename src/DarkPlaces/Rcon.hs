@@ -150,9 +150,9 @@ connect :: RconInfo -> IO RconConnection
 connect rcon = do
     sock <- createDPSocket host port
     info_ref <- newIORef rcon
-    return $ RconConnection {connSocket=sock,
-                             connInfo=info_ref,
-                             getChallange=sockGetChallenge sock}
+    return RconConnection {connSocket=sock,
+                           connInfo=info_ref,
+                           getChallange=sockGetChallenge sock}
   where
     host = rconHost rcon
     port = rconPort rcon
