@@ -6,3 +6,4 @@ dist/
 cabal.sandbox.config
 *.prof
 test.html
+.hpc/
