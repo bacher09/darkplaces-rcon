@@ -43,4 +43,4 @@ test-suite rcon-tests
 
 source-repository head
   type:                git
-  location:            https://github.com/bacher09/darkplaces-rcon
+  location:            https://github.com/bacher09/darkplaces-rcon.git
