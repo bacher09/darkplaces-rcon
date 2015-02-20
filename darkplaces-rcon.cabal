@@ -41,6 +41,17 @@ test-suite rcon-tests
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing
 
 
+executable drcon
+  main-is:             DRcon.hs
+  hs-source-dirs:      utils
+  default-language:    Haskell2010
+  build-depends:       base >=4.5 && <5,
+                       optparse-applicative >= 0.10 && < 0.12,
+                       darkplaces-rcon
+
+  default-extensions:  CPP
+
+
 source-repository head
   type:                git
   location:            https://github.com/bacher09/darkplaces-rcon.git
