@@ -28,9 +28,9 @@ toMicroseconds v = round $ v * 1e6
 argsParser :: Parser CommandArgs
 argsParser = CommandArgs
     <$> connParser
-    <*> argument str (
-        metavar "COMMAND"
-        <> help "Command to execute")
+    <*> (unwords <$> some
+        (argument str (metavar "COMMAND"
+                       <> help "Command to execute")))
 
 
 rconExec :: RconInfo -> String -> Float -> IO ()
