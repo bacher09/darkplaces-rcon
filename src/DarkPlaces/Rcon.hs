@@ -16,7 +16,10 @@ module DarkPlaces.Rcon (
     send,
     recvRcon,
     enableLog,
-    disableLog
+    disableLog,
+    setPassword,
+    setMode,
+    setTimeDiff
 ) where
 import Crypto.Hash
 import Data.Byteable
@@ -238,3 +241,19 @@ enableLog c = send c =<< enableLogStr c
 
 disableLog :: RconConnection -> IO ()
 disableLog c = send c =<< disableLogStr c
+
+
+setParam :: RconConnection -> (RconInfo -> RconInfo) -> IO ()
+setParam c f = atomicModifyIORef (connInfo c) $ \r -> (f r, ())
+
+
+setPassword :: RconConnection -> B.ByteString -> IO ()
+setPassword c passw = setParam c $ \rcon -> rcon {rconPassword=passw}
+
+
+setMode :: RconConnection -> RconMode -> IO ()
+setMode c mode = setParam c $ \rcon -> rcon {rconMode=mode}
+
+
+setTimeDiff :: RconConnection -> Int -> IO ()
+setTimeDiff c time = setParam c $ \rcon -> rcon {rconTimeDiff=time}
