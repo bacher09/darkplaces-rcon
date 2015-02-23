@@ -1,4 +1,21 @@
-module DarkPlaces.Rcon where
+module DarkPlaces.Rcon (
+    RconMode(..),
+    RconInfo(..),
+    RconConnection,
+    defaultRcon,
+    maxPacketSize,
+    parseChallenge,
+    parseRcon,
+    rconNonSecurePacket,
+    rconSecureTimePacket,
+    rconSecureChallangePacket,
+    makeRcon,
+    connect,
+    close,
+    isConnected,
+    send,
+    recvRcon
+) where
 import Crypto.Hash
 import Data.Byteable
 import Data.Monoid
@@ -7,9 +24,9 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy as BL
-import Network.Socket hiding (connect, close, isConnected)
+import Network.Socket hiding (connect, close, isConnected, send, recv)
 import qualified Network.Socket as N
-import Network.Socket.ByteString as NB
+import qualified Network.Socket.ByteString as NB
 import qualified Network.Socket.ByteString.Lazy as NBL
 import Data.IORef
 import Data.Time.Clock.POSIX (getPOSIXTime)
