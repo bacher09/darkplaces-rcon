@@ -48,37 +48,6 @@ rconExec rcon command time = do
             Nothing -> return ()
 
 
-
-{-rconClient :: CommandArgs -> IO ()-}
-{-rconClient args = do-}
-    {-[>let (Just server) = defaultHostAndPort "26000" $ serverString args<]-}
-    {-[>let brcon = makeRcon (fst server) (snd server) (BU.fromString $ cliPassword args)<]-}
-    {-[>let rcon = brcon {rconMode=cliMode args, rconTimeDiff=cliTimeDiff args}<]-}
-    {-[>print rcon<]-}
-    {-print args-}
-    {-config_file <- configPath-}
-    {-mcon <- case eitherGetArgs mconf server_str of-}
-        {-(Right r) -> return r-}
-        {-(Left e) -> print e >> exitFailure-}
-
-    {-print mcon-}
-
-    {-[>con <- RCON.connect rcon<]-}
-    {-[>let command = BU.fromString $ cliCommand args<]-}
-    {-[>RCON.send con command<]-}
-    {-[>printRecv con<]-}
-  {-where-}
-    {-argsConn = conArgs args-}
-    {-server_str = fromMaybe "DEFAULT" $ conServerString $ argsConn-}
-    {-[>time_wait = toMicroseconds $ cliTimeout args<]-}
-    {-[>time_wait = toMicroseconds $ cliTimeout args<]-}
-    {-[>printRecv con = do<]-}
-        {-[>mdata <- timeout time_wait $ RCON.recvRcon con<]-}
-        {-[>case mdata of<]-}
-            {-[>(Just r) -> printDPText False (BL.fromStrict r) >> printRecv con<]-}
-            {-[>Nothing -> return ()<]-}
-
-
 processArgs :: CommandArgs -> UtilError ()
 processArgs args = do
     (rcon, time_out) <- rconConfigure $ conArgs args
