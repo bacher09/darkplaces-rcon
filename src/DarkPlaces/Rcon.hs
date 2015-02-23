@@ -14,7 +14,9 @@ module DarkPlaces.Rcon (
     close,
     isConnected,
     send,
-    recvRcon
+    recvRcon,
+    enableLog,
+    disableLog
 ) where
 import Crypto.Hash
 import Data.Byteable
@@ -31,6 +33,7 @@ import qualified Network.Socket.ByteString.Lazy as NBL
 import Data.IORef
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Control.Monad
+import Control.Applicative
 
 
 data RconMode = NonSecureRcon
@@ -211,3 +214,27 @@ recvRcon conn = do
         Nothing -> recvRcon conn
   where
     sock = connSocket conn
+
+
+socketStr :: RconConnection -> IO B.ByteString
+socketStr c = BC.pack . show <$> getSocketName (connSocket c)
+
+
+enableLogStr :: RconConnection -> IO B.ByteString
+enableLogStr rc = BC.append log_begin <$> socketStr rc
+  where
+    log_begin = BC.pack "sv_cmd addtolist log_dest_udp "
+
+
+disableLogStr :: RconConnection -> IO B.ByteString
+disableLogStr rc = BC.append log_begin <$> socketStr rc
+  where
+    log_begin = BC.pack "sv_cmd removefromlist log_dest_udp "
+
+
+enableLog :: RconConnection -> IO ()
+enableLog c = send c =<< enableLogStr c
+
+
+disableLog :: RconConnection -> IO ()
+disableLog c = send c =<< disableLogStr c
