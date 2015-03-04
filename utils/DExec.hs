@@ -37,15 +37,15 @@ rconExec :: RconInfo -> String -> Float -> IO ()
 rconExec rcon command time = do
     con <- RCON.connect rcon
     RCON.send con (BU.fromString command)
-    printRecv con
+    printRecv con defaultStreamState
     RCON.close con
   where
     wait_time = toMicroseconds time
-    printRecv con = do
+    printRecv con st = do
         mdata <- timeout wait_time $ RCON.recvRcon con
         case mdata of
-            (Just r) -> printDPText False (BL.fromStrict r) >> printRecv con
-            Nothing -> return ()
+            (Just r) -> printStreamDPText False st (BL.fromStrict r) >>= printRecv con
+            Nothing -> streamEnd True st
 
 
 processArgs :: CommandArgs -> UtilError ()
