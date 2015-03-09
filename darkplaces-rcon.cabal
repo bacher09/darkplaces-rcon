@@ -13,7 +13,8 @@ synopsis:            Darkplaces rcon client
 -- description:         
 
 library
-  exposed-modules:     DarkPlaces.Rcon
+  exposed-modules:     DarkPlaces.Rcon,
+                       DarkPlaces.Rcon.Internal
   hs-source-dirs:      src
   -- other-modules:       
   -- other-extensions:    

@@ -3,6 +3,7 @@ module DarkPlaces.RconSpec (
 ) where
 import Test.Hspec
 import DarkPlaces.Rcon
+import DarkPlaces.Rcon.Internal
 
 
 spec :: Spec
