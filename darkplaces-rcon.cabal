@@ -12,6 +12,10 @@ cabal-version:       >=1.10
 synopsis:            Darkplaces rcon client
 -- description:         
 
+flag IntegrationTest
+    default:           False
+    description:       Enable Integration testing
+
 library
   exposed-modules:     DarkPlaces.Rcon,
                        DarkPlaces.Rcon.Internal
@@ -35,11 +39,16 @@ test-suite rcon-tests
   hs-source-dirs:      tests
   main-is:             Spec.hs
   build-depends:       base >=4.7 && <4.8,
+                       bytestring >=0.10 && <0.11,
                        darkplaces-rcon,
+                       hspec-core,
                        hspec
 
   default-extensions:  OverloadedStrings
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing
+
+  if flag(IntegrationTest)
+    cpp-options:       -DINTEGRATION
 
 
 executable dexec
