@@ -56,8 +56,13 @@ rconExec rcon command color time = do
     wait_time = toMicroseconds time
     printRecv con st = do
         mdata <- timeout wait_time $ RCON.recvRcon con
+        let st_args = PrintStreamArgs {
+            withColor=color,
+            streamState=st,
+            decodeFun=toUTF Utf8Lenient}
+
         case mdata of
-            (Just r) -> printStreamDPText color st (BL.fromStrict r) >>= printRecv con
+            (Just r) -> printStreamDPText st_args (BL.fromStrict r) >>= printRecv con
             Nothing -> streamEnd color st
 
 
