@@ -46,8 +46,8 @@ argsParser = CommandArgs
                        <> help "Command to execute")))
 
 
-rconExec :: RconInfo -> String -> Bool -> Float -> IO ()
-rconExec rcon command color time = do
+rconExec :: RconInfo -> String -> Bool -> Float -> DecodeType -> IO ()
+rconExec rcon command color time enc = do
     con <- RCON.connect rcon
     RCON.send con (BU.fromString command)
     printRecv con defaultStreamState
@@ -59,7 +59,7 @@ rconExec rcon command color time = do
         let st_args = PrintStreamArgs {
             withColor=color,
             streamState=st,
-            decodeFun=toUTF Utf8Lenient}
+            decodeFun=toUTF enc}
 
         case mdata of
             (Just r) -> printStreamDPText st_args (BL.fromStrict r) >>= printRecv con
@@ -68,12 +68,12 @@ rconExec rcon command color time = do
 
 processArgs :: CommandArgs -> UtilError ()
 processArgs args = do
-    (rcon, time_out) <- rconConfigure $ conArgs args
+    (rcon, time_out, enc) <- rconConfigure $ conArgs args
     color <- liftIO $ case cliColor args of
         (Just c) -> return c
         Nothing -> supportColors
 
-    liftIO $ rconExec rcon command color time_out
+    liftIO $ rconExec rcon command color time_out enc
   where
     command = cliCommand args
 

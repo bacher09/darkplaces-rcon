@@ -25,6 +25,8 @@ import Control.Exception (tryJust)
 import Network.HostAndPort (defaultHostAndPort)
 import qualified Data.ByteString.UTF8 as BU
 import Text.Printf
+import DarkPlaces.Text (DecodeType(..))
+import Data.List (lookup)
 
 
 #if __GLASGOW_HASKELL__ >= 706
@@ -44,7 +46,8 @@ data ConnectionArgs = ConnectionArgs {
     conPassword  :: Maybe String,
     conMode      :: Maybe RconMode,
     conTimeDiff  :: Maybe Int,
-    conTimeout   :: Maybe Float
+    conTimeout   :: Maybe Float,
+    conEncoding  :: Maybe DecodeType
 } deriving(Show, Read, Eq)
 
 
@@ -56,7 +59,8 @@ defaultConnectionArgs = ConnectionArgs {
     conPassword=Nothing,
     conMode=Just TimeSecureRcon,
     conTimeDiff=Just 0,
-    conTimeout=Just 1.5}
+    conTimeout=Just 1.5,
+    conEncoding=Just Utf8Lenient}
 
 
 configName :: String
@@ -75,11 +79,12 @@ mergeConnectionArgs f l = l {
     conPassword = getLast $ Last (conPassword f) <> Last (conPassword l),
     conMode = getLast $ Last (conMode f) <> Last (conMode l),
     conTimeDiff = getLast $ Last (conTimeDiff f) <> Last (conTimeDiff l),
-    conTimeout = getLast $ Last (conTimeout f) <> Last (conTimeout l)}
+    conTimeout = getLast $ Last (conTimeout f) <> Last (conTimeout l),
+    conEncoding = getLast $ Last (conEncoding f) <> Last (conEncoding l)}
 
 
 instance Monoid ConnectionArgs where
-    mempty = ConnectionArgs Nothing Nothing Nothing Nothing Nothing
+    mempty = ConnectionArgs Nothing Nothing Nothing Nothing Nothing Nothing
     mappend = mergeConnectionArgs
 
 
@@ -97,6 +102,22 @@ checkTimeout :: Float -> Either String Float
 checkTimeout t
     | t > 0 = Right t
     | otherwise = Left "value should be bigger then 0"
+
+
+encodings :: [(String, DecodeType)]
+encodings = [
+    ("utf8", Utf8Lenient),
+    ("utf8-lenient", Utf8Lenient),
+    ("utf8-ignore", Utf8Ignore),
+    ("utf8-strict", Utf8Strict),
+    ("nexuiz", NexuizDecode)]
+
+
+parseEncoding :: String -> Either String DecodeType
+parseEncoding encname = case lookup encname encodings of
+    Just v -> Right v
+    Nothing -> Left "Error bad decode type"
+
 
 
 eitherArgs :: Either String a -> ReadM a
@@ -132,6 +153,12 @@ connParser = ConnectionArgs
         <> long "timeout"
         <> value Nothing
         <> metavar "TIMEOUT")
+    <*> option (maybeP $ str >>= eitherArgs . parseEncoding) (
+        short 'e'
+        <> long "encoding"
+        <> value Nothing
+        <> help "Server encoding. Can be utf8 or nexuiz"
+        <> metavar "ENCODING")
 
 
 getMaybe :: (Get_C a, MonadError CPError m) => ConfigParser -> SectionSpec -> OptionSpec -> m (Maybe a)
@@ -154,20 +181,19 @@ getArgsFromConfig c name = do
         (Just (Left e)) -> throwError (ParseError $ "Bad timeout:" ++ e, "gettimeout")
         Nothing -> return $ Nothing
 
+    raw_enc <- getMaybe c name "encoding"
+    enc <- case parseEncoding <$> raw_enc of
+        (Just (Right t)) -> return $ Just t
+        (Just (Left e)) -> throwError (ParseError $ "Bad encoding:" ++ e, "getencoding")
+        Nothing -> return $ Nothing
+
     return $ ConnectionArgs {
         conServerString=server,
         conPassword=password,
         conMode=mode,
         conTimeDiff=diff,
-        conTimeout=timeout}
-
-
-{-eitherGetArgs :: Maybe ConfigParser -> String -> Either CPError (Maybe ConnectionArgs)-}
-{-eitherGetArgs c name = fromMaybe (Right Nothing) $ getArgs name <$> c-}
-  {-where-}
-    {-getArgs name c = if c `has_section` name-}
-        {-then Just <$> getArgsFromConfig-}
-        {-else Nothing-}
+        conTimeout=timeout,
+        conEncoding=enc}
 
 
 toRconInfo :: ConnectionArgs -> Either String RconInfo
@@ -198,7 +224,7 @@ readConfig cpath = do
     doRead = liftIO $ readfile emptyCP cpath
 
 
-rconConfigure :: ConnectionArgs -> UtilError (RconInfo, Float)
+rconConfigure :: ConnectionArgs -> UtilError (RconInfo, Float, DecodeType)
 rconConfigure args = do
     config_file <- liftIO configPath
     mconf <- readConfig config_file
@@ -208,7 +234,7 @@ rconConfigure args = do
         (Just (Left _)) -> throwError "Error while parsing config"
 
     case toRconInfo conf of
-        (Right rcon) -> return (rcon, getTimeout conf)
+        (Right rcon) -> return (rcon, getTimeout conf, getEncoding conf)
         (Left efield) -> throwError $ printf "Field error \"%s\"" efield
         
   where
@@ -216,6 +242,7 @@ rconConfigure args = do
     setDefaults = mergeConnectionArgs defaultConnectionArgs
     server_str = fromMaybe "DEFAULT" $ conServerString args
     getTimeout conf = fromMaybe 1.5 $ conTimeout conf
+    getEncoding conf = fromMaybe Utf8Lenient $ conEncoding conf
     getArgs c = if c `has_section` server_str
         then Just $ getArgsFromConfig c server_str
         else Nothing
