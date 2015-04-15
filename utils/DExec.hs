@@ -40,10 +40,11 @@ argsParser = CommandArgs
     <*> (option $ str >>= parseColorMode) (
         long "color"
         <> value Nothing
+        <> help "Possible values are: `auto', `always' and `never'"
         <> metavar "COLOR_MODE")
     <*> (unwords <$> some
         (argument str (metavar "COMMAND"
-                       <> help "Command to execute")))
+                       <> help "Command that will be send to server")))
 
 
 rconExec :: RconInfo -> String -> Bool -> Float -> DecodeType -> IO ()
@@ -82,7 +83,7 @@ main :: IO ()
 main = handleErrors . processArgs =<< execParser opts
   where
     opts = info (helper <*> argsParser)
-        (fullDesc <> progDesc "Darkplaces rcon client")
+        (fullDesc <> progDesc "Darkplaces rcon client utility")
     handleErrors me = do
         r <- runErrorT me
         case r of

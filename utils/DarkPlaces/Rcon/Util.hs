@@ -130,34 +130,38 @@ connParser = ConnectionArgs
     <$> option (maybeP str) (
         short 's'
         <> long "server"
-        <> metavar "SERVER"
         <> value Nothing
-        <> help "Server to connect")
+        <> help "Server to connect or config section"
+        <> metavar "SERVER")
     <*> option (maybeP str) (
         short 'p'
         <> value Nothing
         <> long "password"
+        <> help "Server's password"
         <> metavar "PASSWORD")
     <*> option (maybeP $ str >>= eitherArgs . parseRconMode) (
         short 'm'
         <> long "mode"
         <> value Nothing
+        <> help "Use secure rcon, same as `rcon_secure' cvar, 1 is default"
         <> metavar "MODE")
     <*> option (maybeP auto) (
         short 'd'
         <> long "time-diff"
         <> value Nothing
+        <> help "Integer difference between client and server time, can be negative"
         <> metavar "TIMEDIFF")
     <*> option (maybeP $ auto >>= eitherArgs . checkTimeout) (
         short 't'
         <> long "timeout"
         <> value Nothing
+        <> help "How many time wait for reponse after send or previous response"
         <> metavar "TIMEOUT")
     <*> option (maybeP $ str >>= eitherArgs . parseEncoding) (
         short 'e'
         <> long "encoding"
         <> value Nothing
-        <> help "Server encoding. Can be utf8 or nexuiz"
+        <> help "Server encoding. Major options is `utf8' and `nexuiz'"
         <> metavar "ENCODING")
 
 
