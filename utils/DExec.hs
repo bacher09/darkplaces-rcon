@@ -14,6 +14,17 @@ import Data.Maybe
 import System.Exit
 import Control.Monad.Error
 
+#ifdef CABAL_VERSION
+import Paths_darkplaces_rcon (version)
+import Data.Version (showVersion)
+
+versionStr = showVersion version
+#else
+versionStr = "dev"
+#endif
+
+versionStr :: String
+
 
 data CommandArgs = CommandArgs {
     conArgs      :: ConnectionArgs,
@@ -47,6 +58,13 @@ argsParser = CommandArgs
                        <> help "Command that will be send to server")))
 
 
+argsWithVersion :: Parser (Maybe CommandArgs)
+argsWithVersion = flag' Nothing (
+    long "version"
+    <> short 'V'
+    <> hidden) <|> (Just <$> argsParser)
+
+
 rconExec :: RconInfo -> String -> Bool -> Float -> DecodeType -> IO ()
 rconExec rcon command color time enc = do
     con <- RCON.connect rcon
@@ -67,8 +85,9 @@ rconExec rcon command color time enc = do
             Nothing -> streamEnd color st
 
 
-processArgs :: CommandArgs -> UtilError ()
-processArgs args = do
+processArgs :: Maybe CommandArgs -> UtilError ()
+processArgs Nothing = liftIO $ putStrLn $ "Version: " ++ versionStr
+processArgs (Just args) = do
     (rcon, time_out, enc) <- rconConfigure $ conArgs args
     color <- liftIO $ case cliColor args of
         (Just c) -> return c
@@ -82,7 +101,7 @@ processArgs args = do
 main :: IO ()
 main = handleErrors . processArgs =<< execParser opts
   where
-    opts = info (helper <*> argsParser)
+    opts = info (helper <*> argsWithVersion)
         (fullDesc <> progDesc "Darkplaces rcon client utility")
     handleErrors me = do
         r <- runErrorT me
