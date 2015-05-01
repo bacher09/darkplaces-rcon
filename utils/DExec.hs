@@ -13,6 +13,7 @@ import Data.ConfigFile
 import Data.Maybe
 import System.Exit
 import Control.Monad.Error
+import System.Console.Haskeline
 
 #ifdef CABAL_VERSION
 import Paths_darkplaces_rcon (version)
@@ -29,7 +30,7 @@ versionStr :: String
 data CommandArgs = CommandArgs {
     conArgs      :: ConnectionArgs,
     cliColor     :: Maybe Bool,
-    cliCommand   :: String
+    cliCommand   :: Maybe String
 } deriving(Show, Read, Eq)
 
 
@@ -45,6 +46,12 @@ parseColorMode mode_str
     | otherwise = readerError "value should be always, auto or never"
 
 
+commandParser :: Parser String
+commandParser = unwords <$> (some $ argument str (
+    metavar "COMMAND"
+    <> help "Command that will be send to server"))
+
+
 argsParser :: Parser CommandArgs
 argsParser = CommandArgs
     <$> connParser
@@ -53,9 +60,7 @@ argsParser = CommandArgs
         <> value Nothing
         <> help "Possible values are: `auto', `always' and `never'"
         <> metavar "COLOR_MODE")
-    <*> (unwords <$> some
-        (argument str (metavar "COMMAND"
-                       <> help "Command that will be send to server")))
+    <*> optional commandParser
 
 
 argsWithVersion :: Parser (Maybe CommandArgs)
@@ -65,24 +70,40 @@ argsWithVersion = flag' Nothing (
     <> hidden) <|> (Just <$> argsParser)
 
 
+printRecv :: RconConnection -> (Float, Bool, DecodeType) -> BinStreamState -> IO ()
+printRecv con parm@(time, color, enc) st = do
+    mdata <- timeout (toMicroseconds time) $ RCON.recvRcon con
+    let st_args = PrintStreamArgs {
+        withColor=color,
+        streamState=st,
+        decodeFun=toUTF enc}
+
+    case mdata of
+        (Just r) -> printStreamDPText st_args (BL.fromStrict r) >>= printRecv con parm
+        Nothing -> streamEnd color st
+
+
 rconExec :: RconInfo -> String -> Bool -> Float -> DecodeType -> IO ()
 rconExec rcon command color time enc = do
     con <- RCON.connect rcon
     RCON.send con (BU.fromString command)
-    printRecv con defaultStreamState
+    printRecv con (time, color, enc) defaultStreamState
     RCON.close con
-  where
-    wait_time = toMicroseconds time
-    printRecv con st = do
-        mdata <- timeout wait_time $ RCON.recvRcon con
-        let st_args = PrintStreamArgs {
-            withColor=color,
-            streamState=st,
-            decodeFun=toUTF enc}
 
-        case mdata of
-            (Just r) -> printStreamDPText st_args (BL.fromStrict r) >>= printRecv con
-            Nothing -> streamEnd color st
+
+rconRepl :: RconInfo -> Bool -> Float -> DecodeType -> IO ()
+rconRepl rcon color time enc = do
+    con <- RCON.connect rcon
+    runInputT defaultSettings $ loop con
+  where
+    loop con = handle (\Interrupt -> loop con) $ withInterrupt $ do
+        minput <- getInputLine "> "
+        case minput of
+            Nothing -> liftIO $ RCON.close con
+            Just input -> do
+                liftIO $ RCON.send con (BU.fromString input)
+                liftIO $ printRecv con (time, color, enc) defaultStreamState
+                loop con
 
 
 processArgs :: Maybe CommandArgs -> UtilError ()
@@ -93,7 +114,9 @@ processArgs (Just args) = do
         (Just c) -> return c
         Nothing -> supportColors
 
-    liftIO $ rconExec rcon command color time_out enc
+    case cliCommand args of
+        (Just command) -> liftIO $ rconExec rcon command color time_out enc
+        Nothing -> liftIO $ rconRepl rcon color time_out enc
   where
     command = cliCommand args
 

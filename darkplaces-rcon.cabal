@@ -67,7 +67,8 @@ executable dexec
                        directory,
                        HostAndPort,
                        darkplaces-text >= 0.2,
-                       darkplaces-rcon
+                       darkplaces-rcon,
+                       haskeline >= 0.7
 
   default-extensions:  CPP
   cpp-options:         -DCABAL_VERSION
