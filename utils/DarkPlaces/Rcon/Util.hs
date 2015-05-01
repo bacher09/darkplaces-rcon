@@ -8,7 +8,8 @@ module DarkPlaces.Rcon.Util (
     configName,
     configPath,
     readConfig,
-    rconConfigure
+    rconConfigure,
+    historyPath
 ) where
 import DarkPlaces.Rcon hiding (connect, send)
 import Options.Applicative
@@ -17,7 +18,7 @@ import Data.ConfigFile
 import Control.Monad.Error
 import Data.Either
 import Data.Maybe
-import System.Directory (getHomeDirectory)
+import System.Directory (getHomeDirectory, getAppUserDataDirectory)
 import System.FilePath
 import System.Exit
 import System.IO.Error (isDoesNotExistError)
@@ -27,16 +28,25 @@ import qualified Data.ByteString.UTF8 as BU
 import Text.Printf
 import DarkPlaces.Text (DecodeType(..))
 import Data.List (lookup)
+import System.IO.Error (isDoesNotExistError)
+import Control.Exception (catchJust)
+import Control.Monad (guard)
 
 
-#if __GLASGOW_HASKELL__ >= 706
+#if MIN_VERSION_base(4,6,0)
 import Text.Read (readMaybe)
+import System.Environment (lookupEnv)
 #else
+import System.Environment (getEnv)
 
 readMaybe :: Read a => String -> Maybe a
 readMaybe s = case reads s of
     [(x, "")] -> Just x
     _ -> Nothing
+
+
+lookupEnv :: String -> IO (Maybe String)
+lookupEnv name = catchJust (guard . isDoesNotExistError) (Just <$> getEnv name) (\e -> return Nothing)
 
 #endif
 
@@ -64,13 +74,30 @@ defaultConnectionArgs = ConnectionArgs {
 
 
 configName :: String
-configName = ".drcon.ini"
+configName = "drcon.ini"
+
+
+configDirPath :: IO String
+configDirPath = do
+    h_path <- lookupEnv "DRCON_HOME"
+    case h_path of
+        (Just path) -> return path
+        Nothing -> getAppUserDataDirectory "drcon"
 
 
 configPath :: IO String
 configPath = do
-    home <- getHomeDirectory
-    return $ home </> configName
+    path <- configDirPath
+    return $ path </> configName
+
+
+historyPath :: IO String
+historyPath = do
+    m_path <- lookupEnv "DRCON_HISTFILE"
+    config_dir <- configDirPath
+    case m_path of
+        (Just path) -> return path
+        Nothing -> return $ config_dir </> "drcon_history"
 
 
 mergeConnectionArgs :: ConnectionArgs -> ConnectionArgs -> ConnectionArgs

@@ -94,7 +94,10 @@ rconExec rcon command color time enc = do
 rconRepl :: RconInfo -> Bool -> Float -> DecodeType -> IO ()
 rconRepl rcon color time enc = do
     con <- RCON.connect rcon
-    runInputT defaultSettings $ loop con
+    hist_path <- historyPath
+    let hline_settings = defaultSettings {historyFile=Just hist_path,
+                                         autoAddHistory=True}
+    runInputT hline_settings $ loop con
   where
     loop con = handle (\Interrupt -> loop con) $ withInterrupt $ do
         minput <- getInputLine "> "
