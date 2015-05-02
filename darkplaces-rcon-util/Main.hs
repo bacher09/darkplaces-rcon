@@ -2,6 +2,7 @@ module Main where
 import DRcon.CommandArgs
 import DRcon.ConfigFile
 import DRcon.Paths
+import DRcon.EvalParser
 import DarkPlaces.Rcon hiding (connect, send)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
@@ -10,11 +11,11 @@ import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as BL
 import System.Timeout
 import qualified Data.ByteString.UTF8 as BU
-import Data.ConfigFile
 import Data.Maybe
 import System.Exit
 import Control.Monad.Error
 import System.Console.Haskeline
+import Control.Monad.State.Strict
 
 #ifdef CABAL_VERSION
 import Paths_darkplaces_rcon_util (version)
@@ -26,6 +27,19 @@ versionStr = "dev"
 #endif
 
 versionStr :: String
+
+
+data ReplState = ReplState {
+    replLastCmd  :: Maybe InputType,
+    replColor    :: Bool
+} deriving (Eq, Show, Read)
+
+
+type Repl m = InputT (StateT ReplState m)
+
+
+updateLastCmd :: (Monad m) => InputType -> Repl m ()
+updateLastCmd cmd = lift $ modify (\s -> s {replLastCmd=Just cmd})
 
 
 toMicroseconds :: Float -> Int
@@ -59,16 +73,34 @@ rconRepl rcon color time enc = do
     hist_path <- historyPath
     let hline_settings = defaultSettings {historyFile=Just hist_path,
                                          autoAddHistory=True}
-    runInputT hline_settings $ loop con
+    let repl_state = ReplState {replLastCmd=Nothing,
+                                replColor=color}
+    evalStateT (runInputT hline_settings $ loop con) repl_state
   where
+    loop :: RconConnection -> Repl IO ()
     loop con = handle (\Interrupt -> loop con) $ withInterrupt $ do
         minput <- getInputLine "> "
         case minput of
             Nothing -> liftIO $ RCON.close con
-            Just input -> do
-                liftIO $ RCON.send con (BU.fromString input)
-                liftIO $ printRecv con (time, color, enc) defaultStreamState
-                loop con
+            Just input ->  replAction con (parseCommand input)
+
+    replAction :: RconConnection -> InputType -> Repl IO ()
+    replAction con cmd = case cmd of
+        Quit -> liftIO $ RCON.close con
+        Empty -> loop con
+        RepeatLast -> do
+            last <- lift $ replLastCmd <$> get
+            case last of
+                Nothing -> loop con -- print error message
+                (Just last_cmd) -> replAction con last_cmd
+        RconCommand command -> do
+            rconEval con command
+            updateLastCmd cmd
+            loop con
+
+    rconEval con command = do
+        liftIO $ RCON.send con (BU.fromString command)
+        liftIO $ printRecv con (time, color, enc) defaultStreamState
 
 
 processArgs :: Maybe CommandArgs -> UtilError ()

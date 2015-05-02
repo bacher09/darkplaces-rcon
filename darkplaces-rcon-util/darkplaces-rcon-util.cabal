@@ -13,7 +13,8 @@ cabal-version:       >=1.10
 library
   exposed-modules:     DRcon.CommandArgs,
                        DRcon.ConfigFile,
-                       DRcon.Paths
+                       DRcon.Paths,
+                       DRcon.EvalParser
 
   other-modules:       DRcon.Polyfills
 
