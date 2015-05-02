@@ -4,12 +4,13 @@ license:             GPL-2
 license-file:        LICENSE
 author:              Slava Bacherikov
 maintainer:          slava@bacher09.org
+homepage:            https://github.com/bacher09/darkplaces-rcon
 -- copyright:           
 category:            Game
 build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10
-synopsis:            Darkplaces rcon client
+synopsis:            Darkplaces rcon client library
 -- description:         
 
 flag IntegrationTest
@@ -49,29 +50,6 @@ test-suite rcon-tests
 
   if flag(IntegrationTest)
     cpp-options:       -DINTEGRATION
-
-
-executable drcon
-  main-is:             DRcon.hs
-  hs-source-dirs:      utils
-  default-language:    Haskell2010
-  other-modules:       DarkPlaces.Rcon.Util
-
-  build-depends:       base >=4.5 && <5,
-                       mtl >=2.0,
-                       bytestring >=0.10 && <0.11,
-                       optparse-applicative >= 0.10 && < 0.12,
-                       utf8-string >=0.3,
-                       ConfigFile >=1.1,
-                       filepath,
-                       directory,
-                       HostAndPort,
-                       darkplaces-text >= 0.2,
-                       darkplaces-rcon,
-                       haskeline >= 0.7
-
-  default-extensions:  CPP
-  cpp-options:         -DCABAL_VERSION
 
 
 source-repository head

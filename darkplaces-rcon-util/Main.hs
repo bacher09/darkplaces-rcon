@@ -1,5 +1,5 @@
 module Main where
-import DarkPlaces.Rcon.Util
+import DRcon.Util
 import DarkPlaces.Rcon hiding (connect, send)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
@@ -16,7 +16,7 @@ import Control.Monad.Error
 import System.Console.Haskeline
 
 #ifdef CABAL_VERSION
-import Paths_darkplaces_rcon (version)
+import Paths_darkplaces_rcon_util (version)
 import Data.Version (showVersion)
 
 versionStr = showVersion version
@@ -68,6 +68,7 @@ argsWithVersion = flag' Nothing (
     long "version"
     <> short 'V'
     <> hidden) <|> (Just <$> argsParser)
+
 
 
 printRecv :: RconConnection -> (Float, Bool, DecodeType) -> BinStreamState -> IO ()

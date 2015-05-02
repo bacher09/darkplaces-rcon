@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module DarkPlaces.Rcon.Util (
+module DRcon.Util (
     ConnectionArgs(..),
     UtilError,
     defaultConnectionArgs,
