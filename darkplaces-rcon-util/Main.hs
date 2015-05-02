@@ -1,10 +1,11 @@
 module Main where
-import DRcon.Util
+import DRcon.CommandArgs
+import DRcon.ConfigFile
+import DRcon.Paths
 import DarkPlaces.Rcon hiding (connect, send)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
 import Options.Applicative
-import Network.HostAndPort (defaultHostAndPort)
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as BL
 import System.Timeout
@@ -54,7 +55,7 @@ commandParser = unwords <$> (some $ argument str (
 
 argsParser :: Parser CommandArgs
 argsParser = CommandArgs
-    <$> connParser
+    <$> connectionArgsParser
     <*> (option $ str >>= parseColorMode) (
         long "color"
         <> value Nothing

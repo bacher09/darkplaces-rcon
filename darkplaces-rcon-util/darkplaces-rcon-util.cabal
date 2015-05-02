@@ -11,7 +11,11 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     DRcon.Util
+  exposed-modules:     DRcon.CommandArgs,
+                       DRcon.ConfigFile,
+                       DRcon.Paths
+
+  other-modules:       DRcon.Polyfills
 
   build-depends:       base >=4.5 && <5,
                        mtl >=2.0,
