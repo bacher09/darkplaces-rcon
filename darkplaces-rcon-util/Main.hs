@@ -31,7 +31,9 @@ versionStr :: String
 
 data ReplState = ReplState {
     replLastCmd  :: Maybe InputType,
-    replColor    :: Bool
+    replColor    :: Bool,
+    replDiffTime :: Float,
+    replEncoding :: DecodeType
 } deriving (Eq, Show, Read)
 
 
@@ -67,6 +69,41 @@ rconExec rcon command color time enc = do
     RCON.close con
 
 
+replLoop :: RconConnection -> Repl IO ()
+replLoop con = handle (\Interrupt -> replLoop con) $ withInterrupt $ do
+    minput <- getInputLine "> "
+    case minput of
+        Nothing    -> liftIO $ RCON.close con
+        Just input -> replAction con (parseCommand input)
+
+
+replAction :: RconConnection -> InputType -> Repl IO ()
+replAction con cmd = case cmd of
+    Quit -> liftIO $ RCON.close con
+    Empty -> replLoop con
+    RepeatLast -> do
+        last <- lift $ replLastCmd <$> get
+        case last of
+            Nothing -> outputStrLn noLastCmd >> replLoop con
+            Just last_cmd -> replAction con last_cmd
+    RconCommand command -> do
+        rconEval con command
+        updateLastCmd cmd
+        replLoop con
+  where
+    rconEval con command = do
+        repl_state <- lift $ get
+        let time = replDiffTime repl_state
+            color = replColor repl_state
+            enc = replEncoding repl_state
+
+        liftIO $ RCON.send con (BU.fromString command)
+        liftIO $ printRecv con (time, color, enc) defaultStreamState
+
+    noLastCmd = "there is no last command to perform\n" ++
+        "use :? for help."
+
+
 rconRepl :: RconInfo -> Bool -> Float -> DecodeType -> IO ()
 rconRepl rcon color time enc = do
     con <- RCON.connect rcon
@@ -74,33 +111,10 @@ rconRepl rcon color time enc = do
     let hline_settings = defaultSettings {historyFile=Just hist_path,
                                          autoAddHistory=True}
     let repl_state = ReplState {replLastCmd=Nothing,
-                                replColor=color}
-    evalStateT (runInputT hline_settings $ loop con) repl_state
-  where
-    loop :: RconConnection -> Repl IO ()
-    loop con = handle (\Interrupt -> loop con) $ withInterrupt $ do
-        minput <- getInputLine "> "
-        case minput of
-            Nothing -> liftIO $ RCON.close con
-            Just input ->  replAction con (parseCommand input)
-
-    replAction :: RconConnection -> InputType -> Repl IO ()
-    replAction con cmd = case cmd of
-        Quit -> liftIO $ RCON.close con
-        Empty -> loop con
-        RepeatLast -> do
-            last <- lift $ replLastCmd <$> get
-            case last of
-                Nothing -> loop con -- print error message
-                (Just last_cmd) -> replAction con last_cmd
-        RconCommand command -> do
-            rconEval con command
-            updateLastCmd cmd
-            loop con
-
-    rconEval con command = do
-        liftIO $ RCON.send con (BU.fromString command)
-        liftIO $ printRecv con (time, color, enc) defaultStreamState
+                                replColor=color,
+                                replDiffTime=time,
+                                replEncoding=enc}
+    evalStateT (runInputT hline_settings $ replLoop con) repl_state
 
 
 processArgs :: Maybe CommandArgs -> UtilError ()
