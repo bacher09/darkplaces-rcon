@@ -28,48 +28,8 @@ versionStr = "dev"
 versionStr :: String
 
 
-data CommandArgs = CommandArgs {
-    conArgs      :: ConnectionArgs,
-    cliColor     :: Maybe Bool,
-    cliCommand   :: Maybe String
-} deriving(Show, Read, Eq)
-
-
 toMicroseconds :: Float -> Int
 toMicroseconds v = round $ v * 1e6
-
-
-parseColorMode :: String -> ReadM (Maybe Bool)
-parseColorMode mode_str
-    | mode_str == "always" = return $ Just True
-    | mode_str == "auto" = return Nothing
-    | mode_str == "never" = return $ Just False
-    | otherwise = readerError "value should be always, auto or never"
-
-
-commandParser :: Parser String
-commandParser = unwords <$> (some $ argument str (
-    metavar "COMMAND"
-    <> help "Command that will be send to server"))
-
-
-argsParser :: Parser CommandArgs
-argsParser = CommandArgs
-    <$> connectionArgsParser
-    <*> (option $ str >>= parseColorMode) (
-        long "color"
-        <> value Nothing
-        <> help "Possible values are: `auto', `always' and `never'"
-        <> metavar "COLOR_MODE")
-    <*> optional commandParser
-
-
-argsWithVersion :: Parser (Maybe CommandArgs)
-argsWithVersion = flag' Nothing (
-    long "version"
-    <> short 'V'
-    <> hidden) <|> (Just <$> argsParser)
-
 
 
 printRecv :: RconConnection -> (Float, Bool, DecodeType) -> BinStreamState -> IO ()
@@ -129,7 +89,7 @@ processArgs (Just args) = do
 main :: IO ()
 main = handleErrors . processArgs =<< execParser opts
   where
-    opts = info (helper <*> argsWithVersion)
+    opts = info (helper <*> maybeArgsParser)
         (fullDesc <> progDesc "Darkplaces rcon client utility")
     handleErrors me = do
         r <- runErrorT me

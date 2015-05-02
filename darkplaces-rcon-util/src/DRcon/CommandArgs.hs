@@ -1,11 +1,15 @@
 module DRcon.CommandArgs (
     ConnectionArgs(..),
+    CommandArgs(..),
     defaultConnectionArgs,
     mergeConnectionArgs,
     parseRconMode,
     checkTimeout,
     parseEncoding,
-    connectionArgsParser
+    connectionArgsParser,
+    parseColorMode,
+    argsParser,
+    maybeArgsParser
 ) where
 import Options.Applicative
 import Data.List (lookup)
@@ -22,6 +26,13 @@ data ConnectionArgs = ConnectionArgs {
     conTimeDiff  :: Maybe Int,
     conTimeout   :: Maybe Float,
     conEncoding  :: Maybe DecodeType
+} deriving(Show, Read, Eq)
+
+
+data CommandArgs = CommandArgs {
+    conArgs      :: ConnectionArgs,
+    cliColor     :: Maybe Bool,
+    cliCommand   :: Maybe String
 } deriving(Show, Read, Eq)
 
 
@@ -123,3 +134,35 @@ connectionArgsParser = ConnectionArgs
         <> value Nothing
         <> help "Server encoding. Major options is `utf8' and `nexuiz'"
         <> metavar "ENCODING")
+
+
+parseColorMode :: String -> ReadM (Maybe Bool)
+parseColorMode mode_str
+    | mode_str == "always" = return $ Just True
+    | mode_str == "auto" = return Nothing
+    | mode_str == "never" = return $ Just False
+    | otherwise = readerError "value should be always, auto or never"
+
+
+commandParser :: Parser String
+commandParser = unwords <$> (some $ argument str (
+    metavar "COMMAND"
+    <> help "Command that will be send to server"))
+
+
+argsParser :: Parser CommandArgs
+argsParser = CommandArgs
+    <$> connectionArgsParser
+    <*> (option $ str >>= parseColorMode) (
+        long "color"
+        <> value Nothing
+        <> help "Possible values are: `auto', `always' and `never'"
+        <> metavar "COLOR_MODE")
+    <*> optional commandParser
+
+
+maybeArgsParser :: Parser (Maybe CommandArgs)
+maybeArgsParser = flag' Nothing (
+    long "version"
+    <> short 'V'
+    <> hidden) <|> (Just <$> argsParser)
