@@ -5,7 +5,7 @@ module DRcon.Paths (
     historyPath
 ) where
 
-import System.Directory (getHomeDirectory, getAppUserDataDirectory)
+import System.Directory (getAppUserDataDirectory)
 import System.FilePath
 import DRcon.Polyfills (lookupEnv)
 

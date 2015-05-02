@@ -7,12 +7,9 @@ import DarkPlaces.Rcon hiding (connect, send)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
 import Options.Applicative
-import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as BL
 import System.Timeout
 import qualified Data.ByteString.UTF8 as BU
-import Data.Maybe
-import System.Exit
 import Control.Monad.Error
 import System.Console.Haskeline
 import Control.Monad.State.Strict
@@ -128,8 +125,6 @@ processArgs (Just args) = do
     case cliCommand args of
         (Just command) -> liftIO $ rconExec rcon command color time_out enc
         Nothing -> liftIO $ rconRepl rcon color time_out enc
-  where
-    command = cliCommand args
 
 
 main :: IO ()

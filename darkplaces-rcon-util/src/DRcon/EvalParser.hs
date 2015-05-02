@@ -11,6 +11,7 @@ data InputType = Empty
                | Quit
                | Help
                | RepeatLast
+               | History (Maybe Int)
                | UnknownCommand String String
                | RconCommand String
     deriving(Show, Read, Eq)

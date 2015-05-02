@@ -12,7 +12,6 @@ module DRcon.CommandArgs (
     maybeArgsParser
 ) where
 import Options.Applicative
-import Data.List (lookup)
 import Data.Monoid
 import DarkPlaces.Text (DecodeType(..))
 import DarkPlaces.Rcon hiding (connect, send)
@@ -36,6 +35,7 @@ data CommandArgs = CommandArgs {
 } deriving(Show, Read, Eq)
 
 
+defaultConnectionArgs :: ConnectionArgs
 defaultConnectionArgs = ConnectionArgs {
     conServerString=Nothing,
     conPassword=Nothing,
