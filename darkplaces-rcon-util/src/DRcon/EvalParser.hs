@@ -16,6 +16,7 @@ import Data.Text.Read
 data InputType = Empty
                | Quit
                | Help
+               | Version
                | RepeatLast
                | History (Maybe Int)
                | WrongArgument Text Text
@@ -30,7 +31,8 @@ cmdInfo = [
     (":", "repeat last command"),
     (":help, :?", "display list of commands"),
     (":history [n]", "show n (10 by default) last commands"),
-    (":quit", "quit from drcon")]
+    (":quit", "quit from drcon"),
+    (":version", "print program version")]
 
 
 helpMessage :: Text
@@ -49,7 +51,7 @@ disambiguate cmd = case search_cmds of
     _             -> Nothing
   where
     search_cmds = filter (isPrefixOf cmd) commands
-    commands = [":quit", ":help", ":history"]
+    commands = [":quit", ":help", ":history", ":version"]
 
 
 parseCommand :: String -> InputType
@@ -69,6 +71,7 @@ parseInternalCommand ":help" _ = Help
 parseInternalCommand ":h" _ = Help
 parseInternalCommand ":?" _ = Help
 parseInternalCommand ":" _ = RepeatLast
+parseInternalCommand ":version" _ = Version
 parseInternalCommand ":history" "" = History Nothing
 parseInternalCommand ":history" v = case decimal v of
     (Right (num, "")) -> History (Just num)

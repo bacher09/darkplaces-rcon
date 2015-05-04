@@ -95,6 +95,10 @@ replAction con cmd = case cmd of
         outputStrLn $ unpack helpMessage
         updateLastCmd cmd
         replLoop con
+    Version -> do
+        outputStrLn $ "Version: " ++ versionStr
+        updateLastCmd cmd
+        replLoop con
     History v -> do
         -- 10 is default value for history
         let num = fromMaybe 10 v
