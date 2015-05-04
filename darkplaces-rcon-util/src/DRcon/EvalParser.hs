@@ -1,10 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
 module DRcon.EvalParser (
     InputType(..),
     parseCommand
 ) where
 
+import Prelude hiding (break)
 import Data.Char (isSpace)
-import Data.Maybe
+import Data.Text
 
 
 data InputType = Empty
@@ -12,21 +14,22 @@ data InputType = Empty
                | Help
                | RepeatLast
                | History (Maybe Int)
-               | UnknownCommand String String
-               | RconCommand String
+               | UnknownCommand Text Text
+               | RconCommand Text
     deriving(Show, Read, Eq)
 
 
 parseCommand :: String -> InputType
-parseCommand command = case mfirstChar of
-    Nothing -> Empty
-    (Just ':') -> parseInternalCommand (head $ words command) command
-    (Just _) -> RconCommand command
+parseCommand command
+    | tcommand == empty = Empty
+    | isPrefixOf ":" tcommand = parseInternalCommand cmd args
+    | otherwise = RconCommand tcommand
   where
-    mfirstChar = listToMaybe $ filter (not . isSpace) command
+    tcommand = strip $ pack command
+    (cmd, args) = break isSpace tcommand
 
 
-parseInternalCommand :: String -> String -> InputType
+parseInternalCommand :: Text -> Text -> InputType
 parseInternalCommand ":quit" _ = Quit
 parseInternalCommand ":help" _ = Help
 parseInternalCommand ":?" _ = Help

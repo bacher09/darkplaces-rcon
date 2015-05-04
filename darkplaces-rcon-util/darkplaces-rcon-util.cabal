@@ -29,6 +29,7 @@ library
                        HostAndPort,
                        darkplaces-text >= 0.2,
                        darkplaces-rcon,
+                       text >=1.0,
                        haskeline >= 0.7
 
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing
@@ -47,6 +48,7 @@ executable drcon
                        darkplaces-text >= 0.2,
                        darkplaces-rcon,
                        darkplaces-rcon-util,
+                       text >=1.0,
                        haskeline >= 0.7
 
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing

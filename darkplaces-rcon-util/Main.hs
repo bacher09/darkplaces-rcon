@@ -13,6 +13,7 @@ import qualified Data.ByteString.UTF8 as BU
 import Control.Monad.Error
 import System.Console.Haskeline
 import Control.Monad.State.Strict
+import Data.Text.Encoding as TE
 
 #ifdef CABAL_VERSION
 import Paths_darkplaces_rcon_util (version)
@@ -84,7 +85,7 @@ replAction con cmd = case cmd of
             Nothing -> outputStrLn noLastCmd >> replLoop con
             Just last_cmd -> replAction con last_cmd
     RconCommand command -> do
-        rconEval con command
+        rconEval con $ TE.encodeUtf8 command
         updateLastCmd cmd
         replLoop con
   where
@@ -94,7 +95,7 @@ replAction con cmd = case cmd of
             color = replColor repl_state
             enc = replEncoding repl_state
 
-        liftIO $ RCON.send con (BU.fromString command)
+        liftIO $ RCON.send con command
         liftIO $ printRecv con (time, color, enc) defaultStreamState
 
     noLastCmd = "there is no last command to perform\n" ++
