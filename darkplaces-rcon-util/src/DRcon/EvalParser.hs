@@ -1,13 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DRcon.EvalParser (
     InputType(..),
-    parseCommand
+    parseCommand,
+    helpMessage
 ) where
 
 import Prelude hiding (break)
 import Data.Char (isSpace)
 import Data.Maybe
-import Data.Text hiding (filter)
+import Data.Text hiding (filter, map)
+import qualified Data.Text as T
 import Data.Text.Read
 
 
@@ -20,6 +22,25 @@ data InputType = Empty
                | UnknownCommand Text Text
                | RconCommand Text
     deriving(Show, Read, Eq)
+
+
+cmdInfo :: [(Text, Text)]
+cmdInfo = [
+    ("<rcon command>", "execute command via rcon"),
+    (":", "repeat last command"),
+    (":help, :?", "display list of commands"),
+    (":history [n]", "show n (10 by default) last commands"),
+    (":quit", "quit from drcon")]
+
+
+helpMessage :: Text
+helpMessage = " Available commands:\n\n" `append` cmdList
+  where
+    cmdList = T.concat $ map (uncurry formatCmd) cmdInfo
+    formatCmd name info = T.concat [
+        T.replicate 3 " ",
+        justifyLeft 28 ' ' name,
+        info, "\n"]
 
 
 disambiguate :: Text -> Maybe Text

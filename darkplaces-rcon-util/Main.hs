@@ -91,6 +91,10 @@ replAction con cmd = case cmd of
         case last of
             Nothing -> outputStrLn noLastCmd >> replLoop con
             Just last_cmd -> replAction con last_cmd
+    Help -> do
+        outputStrLn $ unpack helpMessage
+        updateLastCmd cmd
+        replLoop con
     History v -> do
         -- 10 is default value for history
         let num = fromMaybe 10 v
