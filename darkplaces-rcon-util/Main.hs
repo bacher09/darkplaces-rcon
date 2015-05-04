@@ -12,8 +12,12 @@ import System.Timeout
 import qualified Data.ByteString.UTF8 as BU
 import Control.Monad.Error
 import System.Console.Haskeline
+import System.Console.Haskeline.History (historyLines)
 import Control.Monad.State.Strict
+import Data.Maybe
+import Data.Text (unpack)
 import Data.Text.Encoding as TE
+import Text.Printf
 
 #ifdef CABAL_VERSION
 import Paths_darkplaces_rcon_util (version)
@@ -79,11 +83,22 @@ replAction :: RconConnection -> InputType -> Repl IO ()
 replAction con cmd = case cmd of
     Quit -> liftIO $ RCON.close con
     Empty -> replLoop con
+    UnknownCommand cmd _ -> do
+        outputStrLn $ printf badCmd $ unpack cmd
+        replLoop con
     RepeatLast -> do
         last <- lift $ replLastCmd <$> get
         case last of
             Nothing -> outputStrLn noLastCmd >> replLoop con
             Just last_cmd -> replAction con last_cmd
+    History v -> do
+        -- 10 is default value for history
+        let num = fromMaybe 10 v
+        history <- getHistory
+        let h_lines = take num $ historyLines history
+        forM_ h_lines $ outputStrLn . (replicate 2 ' ' ++)
+        updateLastCmd cmd
+        replLoop con
     RconCommand command -> do
         rconEval con $ TE.encodeUtf8 command
         updateLastCmd cmd
@@ -99,6 +114,8 @@ replAction con cmd = case cmd of
         liftIO $ printRecv con (time, color, enc) defaultStreamState
 
     noLastCmd = "there is no last command to perform\n" ++
+        "use :? for help."
+    badCmd = "unknown command '%s'\n" ++
         "use :? for help."
 
 
