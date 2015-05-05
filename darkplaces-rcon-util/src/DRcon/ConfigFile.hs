@@ -47,6 +47,13 @@ readConfig cpath = do
     doRead = liftIO $ readfile emptyCP cpath
 
 
+parseAddrFamily :: String -> Either String ProtocolOptions
+parseAddrFamily val = case val of
+    "any"   -> Right BothProtocols
+    "inet"  -> Right OnlyIPv4
+    "inet6" -> Right OnlyIPv6
+    _       -> Left "Bad addrfamily, supported options: any, inet, inet6"
+
 
 argsFromConfig :: (MonadError CPError m) => ConfigParser -> String -> m BaseArgs
 argsFromConfig c name = do
@@ -59,20 +66,26 @@ argsFromConfig c name = do
     mode <- case parseRconMode <$> raw_mode of
         (Just (Right v)) -> return $ Just v
         (Just (Left e)) -> throwError (ParseError $ "Bad value for mode:" ++ e, "getmode")
-        Nothing -> return $ Nothing
+        Nothing -> return Nothing
 
     diff <- getMaybe c name "diff"
     raw_timeout <- getMaybe c name "timeout"
     timeout <- case checkTimeout <$> raw_timeout of
         (Just (Right t)) -> return $ Just t
         (Just (Left e)) -> throwError (ParseError $ "Bad timeout:" ++ e, "gettimeout")
-        Nothing -> return $ Nothing
+        Nothing -> return Nothing
 
     raw_enc <- getMaybe c name "encoding"
     enc <- case parseEncoding <$> raw_enc of
         (Just (Right t)) -> return $ Just t
         (Just (Left e)) -> throwError (ParseError $ "Bad encoding:" ++ e, "getencoding")
-        Nothing -> return $ Nothing
+        Nothing -> return Nothing
+
+    raw_protoopts <- getMaybe c name "addrfamily"
+    proto_opts <- case parseAddrFamily <$> raw_protoopts of
+        (Just (Right t)) -> return $ Just t
+        (Just (Left e)) -> throwError (ParseError $ "Bad addrfamily:" ++ e, "getaddrfamily")
+        Nothing -> return Nothing
 
     return $ BaseArgs {
         confServerString=server,
@@ -81,7 +94,7 @@ argsFromConfig c name = do
         confTimeDiff=diff,
         confTimeout=timeout,
         confEncoding=enc,
-        confProtoOptions=BothProtocols}
+        confProtoOptions=proto_opts}
 
 
 getPasswordOrExit :: IO String
@@ -106,7 +119,9 @@ getDRconArgs args = do
         (Just v) -> return v
 
     let base_rcon = makeRcon host port (BU.fromString password)
-    let rcon = base_rcon {rconMode=mode, rconTimeDiff=time_diff}
+    let rcon = base_rcon {rconMode=mode,
+                          rconTimeDiff=time_diff,
+                          rconProtoOpt=proto_opt}
     return $ DRconArgs {connectInfo=rcon,
                         drconTimeout=time_out,
                         drconEncoding=enc}
@@ -116,6 +131,7 @@ getDRconArgs args = do
     time_diff = fromMaybe 0 $ confTimeDiff args
     time_out = fromMaybe 1.5 $ confTimeout args
     enc = fromMaybe Utf8Lenient $ confEncoding args
+    proto_opt = fromMaybe BothProtocols $ confProtoOptions args
 
 
 mergeArgs :: BaseArgs -> BaseArgs -> BaseArgs
@@ -126,7 +142,7 @@ mergeArgs f s = BaseArgs {
     confTimeDiff = merge confTimeDiff,
     confTimeout = merge confTimeout,
     confEncoding = merge confEncoding,
-    confProtoOptions = confProtoOptions f}
+    confProtoOptions = merge confProtoOptions}
   where
     merge fun = fun f <|> fun s
 

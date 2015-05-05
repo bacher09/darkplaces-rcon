@@ -10,16 +10,9 @@ module DRcon.CommandArgs (
     maybeArgsParser
 ) where
 import Options.Applicative
-import Data.Monoid
 import DarkPlaces.Text (DecodeType(..))
 import DarkPlaces.Rcon hiding (connect, send)
 import DRcon.Polyfills (readMaybe)
-
-
-data ProtocolOptions = OnlyIPv4
-                     | OnlyIPv6
-                     | BothProtocols
-    deriving(Show, Read, Eq, Ord)
 
 
 data BaseArgs = BaseArgs {
@@ -29,7 +22,7 @@ data BaseArgs = BaseArgs {
     confTimeDiff     :: Maybe Int,
     confTimeout      :: Maybe Float,
     confEncoding     :: Maybe DecodeType,
-    confProtoOptions :: ProtocolOptions
+    confProtoOptions :: Maybe ProtocolOptions
 } deriving(Show, Read, Eq)
 
 
@@ -81,11 +74,11 @@ parseColorMode mode_str
     | otherwise = readerError "value should be always, auto or never"
 
 
-protoOptionsParser :: Parser ProtocolOptions
+protoOptionsParser :: Parser (Maybe ProtocolOptions)
 protoOptionsParser =
-    flag' OnlyIPv4 (short '4' <> help "Forces to use IPv4 addresses only")
-    <|> flag' OnlyIPv6 (short '6' <> help "Forces to use IPv6 addresses only")
-    <|> (pure BothProtocols)
+    flag' (Just OnlyIPv4) (short '4' <> help "Forces to use IPv4 addresses only")
+    <|> flag' (Just OnlyIPv6) (short '6' <> help "Forces to use IPv6 addresses only")
+    <|> (pure Nothing)
 
 
 commandParser :: Parser String

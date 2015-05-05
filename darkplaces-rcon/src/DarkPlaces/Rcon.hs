@@ -1,5 +1,6 @@
 module DarkPlaces.Rcon (
     RconMode(..),
+    ProtocolOptions(..),
     RconInfo(..),
     RconConnection,
     defaultRcon,
@@ -34,12 +35,19 @@ data RconMode = NonSecureRcon
     deriving(Show, Read, Eq, Ord, Enum, Bounded)
 
 
+data ProtocolOptions = OnlyIPv4
+                     | OnlyIPv6
+                     | BothProtocols
+    deriving(Show, Read, Eq, Ord, Enum, Bounded)
+
+
 data RconInfo = RconInfo {
-    rconHost :: HostName,
-    rconPort :: ServiceName,
-    rconMode :: RconMode,
+    rconHost     :: HostName,
+    rconPort     :: ServiceName,
+    rconMode     :: RconMode,
     rconPassword :: B.ByteString,
-    rconTimeDiff :: Int
+    rconTimeDiff :: Int,
+    rconProtoOpt :: ProtocolOptions
 } deriving (Show, Read, Eq)
 
 
@@ -55,7 +63,8 @@ defaultRcon = RconInfo {rconHost="localhost",
                         rconPort="26000",
                         rconMode=TimeSecureRcon,
                         rconPassword=B.empty,
-                        rconTimeDiff=0}
+                        rconTimeDiff=0,
+                        rconProtoOpt=BothProtocols}
 
 
 getConnectionInfo :: (RconInfo -> a) -> RconConnection -> IO a
@@ -73,14 +82,19 @@ sockGetChallenge s = NB.send s challangePacket >> recvChallange
             Nothing -> recvChallange
 
 
-createDPSocket :: HostName -> ServiceName -> IO Socket
-createDPSocket host port = do
+createDPSocket :: HostName -> ServiceName -> ProtocolOptions -> IO Socket
+createDPSocket host port opt = do
     host_addr <- getHostAddr
-    sock <- socket (addrFamily host_addr) Datagram defaultProtocol
+    sock <- socket (addrFamily host_addr) Datagram (addrProtocol host_addr)
     N.connect sock (addrAddress host_addr)
     return sock
   where
-    getHostAddr = fmap head $ getAddrInfo Nothing (Just host) (Just port)
+    getHostAddr = fmap head $ getAddrInfo (Just hints) (Just host) (Just port)
+    dg_hints = defaultHints {addrSocketType=Datagram, addrFlags=[AI_ADDRCONFIG]}
+    hints = case opt of
+        BothProtocols -> dg_hints
+        OnlyIPv4 -> dg_hints {addrFamily=AF_INET}
+        OnlyIPv6 -> dg_hints {addrFamily=AF_INET6}
 
 
 makeRcon :: HostName -> ServiceName -> B.ByteString -> RconInfo
@@ -91,7 +105,7 @@ makeRcon host port passw = defaultRcon {rconHost=host,
 
 connect :: RconInfo -> IO RconConnection
 connect rcon = do
-    sock <- createDPSocket host port
+    sock <- createDPSocket host port opt
     info_ref <- newIORef rcon
     return RconConnection {connSocket=sock,
                            connInfo=info_ref,
@@ -99,6 +113,7 @@ connect rcon = do
   where
     host = rconHost rcon
     port = rconPort rcon
+    opt = rconProtoOpt rcon
 
 
 close :: RconConnection -> IO ()
