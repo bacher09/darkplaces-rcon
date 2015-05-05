@@ -13,9 +13,11 @@ import Control.Exception (tryJust)
 import qualified Data.ByteString.UTF8 as BU
 import Network.HostAndPort (defaultHostAndPort)
 import DarkPlaces.Rcon hiding (connect, send)
+import System.Console.Haskeline
 import Control.Monad.Error
 import Control.Applicative
 import Data.Maybe
+import System.Exit
 
 
 data DRconArgs = DRconArgs {
@@ -82,6 +84,17 @@ argsFromConfig c name = do
         confProtoOptions=BothProtocols}
 
 
+getPasswordOrExit :: IO String
+getPasswordOrExit = do
+    mpassw <- runInputT defaultSettings tryGetPassword
+    case mpassw of
+        (Just p) -> return p
+        Nothing -> exitSuccess
+  where
+    tryGetPassword = handle (\Interrupt -> liftIO exitSuccess) $ withInterrupt $
+        getPassword Nothing "Password: "
+
+
 getDRconArgs :: BaseArgs -> UtilError DRconArgs
 getDRconArgs args = do
     (host, port) <- case defaultHostAndPort "26000" server of
@@ -89,7 +102,7 @@ getDRconArgs args = do
         (Just v) -> return v
 
     password <- case confPassword args of
-        -- read password from console
+        Nothing -> liftIO $ getPasswordOrExit
         (Just v) -> return v
 
     let base_rcon = makeRcon host port (BU.fromString password)
