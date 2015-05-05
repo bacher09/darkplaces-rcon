@@ -1,15 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 module DRcon.ConfigFile (
+    DRconArgs(..),
     UtilError,
-    readConfig,
-    getArgsFromConfig,
     rconConfigure
 ) where
 import DRcon.CommandArgs
 import DRcon.Paths
 import DarkPlaces.Text (DecodeType(..))
 import Data.ConfigFile
-import Text.Printf
 import System.IO.Error (isDoesNotExistError)
 import Control.Exception (tryJust)
 import qualified Data.ByteString.UTF8 as BU
@@ -17,8 +15,14 @@ import Network.HostAndPort (defaultHostAndPort)
 import DarkPlaces.Rcon hiding (connect, send)
 import Control.Monad.Error
 import Control.Applicative
-import Data.Monoid
 import Data.Maybe
+
+
+data DRconArgs = DRconArgs {
+    connectInfo   :: RconInfo,
+    drconTimeout  :: Float,
+    drconEncoding :: DecodeType
+} deriving (Show, Read, Eq)
 
 
 type UtilError = ErrorT String IO
@@ -41,15 +45,20 @@ readConfig cpath = do
     doRead = liftIO $ readfile emptyCP cpath
 
 
-getArgsFromConfig :: (MonadError CPError m) => ConfigParser -> String -> m ConnectionArgs
-getArgsFromConfig c name = do
-    server <- getMaybe c name "server"
+
+argsFromConfig :: (MonadError CPError m) => ConfigParser -> String -> m BaseArgs
+argsFromConfig c name = do
+    server <- if c `has_section` name
+        then fromMaybe name `liftM` getMaybe c name "server"
+        else return name
+
     password <- getMaybe c name "password"
     raw_mode <- getMaybe c name "mode"
     mode <- case parseRconMode <$> raw_mode of
         (Just (Right v)) -> return $ Just v
         (Just (Left e)) -> throwError (ParseError $ "Bad value for mode:" ++ e, "getmode")
         Nothing -> return $ Nothing
+
     diff <- getMaybe c name "diff"
     raw_timeout <- getMaybe c name "timeout"
     timeout <- case checkTimeout <$> raw_timeout of
@@ -63,49 +72,59 @@ getArgsFromConfig c name = do
         (Just (Left e)) -> throwError (ParseError $ "Bad encoding:" ++ e, "getencoding")
         Nothing -> return $ Nothing
 
-    return $ ConnectionArgs {
-        conServerString=server,
-        conPassword=password,
-        conMode=mode,
-        conTimeDiff=diff,
-        conTimeout=timeout,
-        conEncoding=enc}
+    return $ BaseArgs {
+        confServerString=server,
+        confPassword=password,
+        confMode=mode,
+        confTimeDiff=diff,
+        confTimeout=timeout,
+        confEncoding=enc,
+        confProtoOptions=BothProtocols}
 
 
-toRconInfo :: ConnectionArgs -> Either String RconInfo
-toRconInfo args = do
-    server <- toEither "server" $ conServerString args
-    (host, port) <- toEither "server" $ hostPort server
-    password <- toEither "password" $ conPassword args
-    mode <- toEither "mode" $ conMode args
-    time_diff <- toEither "diff" $ conTimeDiff args
-    let rcon = makeRcon host port (BU.fromString password)
-    return $ rcon {rconMode=mode, rconTimeDiff=time_diff}
+getDRconArgs :: BaseArgs -> UtilError DRconArgs
+getDRconArgs args = do
+    (host, port) <- case defaultHostAndPort "26000" server of
+        Nothing -> throwError "Error while parsing server string"
+        (Just v) -> return v
+
+    password <- case confPassword args of
+        -- read password from console
+        (Just v) -> return v
+
+    let base_rcon = makeRcon host port (BU.fromString password)
+    let rcon = base_rcon {rconMode=mode, rconTimeDiff=time_diff}
+    return $ DRconArgs {connectInfo=rcon,
+                        drconTimeout=time_out,
+                        drconEncoding=enc}
   where
-    toEither n Nothing = Left n
-    toEither _ (Just v) = Right v
-    hostPort = defaultHostAndPort "26000"
+    server = confServerString args
+    mode = fromMaybe TimeSecureRcon $ confMode args
+    time_diff = fromMaybe 0 $ confTimeDiff args
+    time_out = fromMaybe 1.5 $ confTimeout args
+    enc = fromMaybe Utf8Lenient $ confEncoding args
 
 
-rconConfigure :: ConnectionArgs -> UtilError (RconInfo, Float, DecodeType)
-rconConfigure args = do
+mergeArgs :: BaseArgs -> BaseArgs -> BaseArgs
+mergeArgs f s = BaseArgs {
+    confServerString = confServerString s,
+    confPassword = merge confPassword,
+    confMode = merge confMode,
+    confTimeDiff = merge confTimeDiff,
+    confTimeout = merge confTimeout,
+    confEncoding = merge confEncoding,
+    confProtoOptions = confProtoOptions f}
+  where
+    merge fun = fun f <|> fun s
+
+
+rconConfigure :: String -> BaseArgs -> UtilError DRconArgs
+rconConfigure name args = do
     config_file <- liftIO configPath
     mconf <- readConfig config_file
-    conf <- case mconf >>= getArgs of
-        Nothing -> return $ setDefaults args
-        (Just (Right c)) -> return $ setDefaults $ merge args c
+    new_args <- case argsFromConfig <$> mconf <*> pure name of
+        Nothing -> return args
+        (Just (Right c)) -> return $ mergeArgs args c
         (Just (Left _)) -> throwError "Error while parsing config"
 
-    case toRconInfo conf of
-        (Right rcon) -> return (rcon, getTimeout conf, getEncoding conf)
-        (Left efield) -> throwError $ printf "Field error \"%s\"" efield
-        
-  where
-    merge f s = (s <> f) {conServerString=conServerString s}
-    setDefaults = mergeConnectionArgs defaultConnectionArgs
-    server_str = fromMaybe "DEFAULT" $ conServerString args
-    getTimeout conf = fromMaybe 1.5 $ conTimeout conf
-    getEncoding conf = fromMaybe Utf8Lenient $ conEncoding conf
-    getArgs c = if c `has_section` server_str
-        then Just $ getArgsFromConfig c server_str
-        else Nothing
+    getDRconArgs new_args

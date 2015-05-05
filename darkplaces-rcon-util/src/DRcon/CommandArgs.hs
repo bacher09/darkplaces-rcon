@@ -1,12 +1,10 @@
 module DRcon.CommandArgs (
-    ConnectionArgs(..),
+    ProtocolOptions(..),
+    BaseArgs(..),
     CommandArgs(..),
-    defaultConnectionArgs,
-    mergeConnectionArgs,
     parseRconMode,
     checkTimeout,
     parseEncoding,
-    connectionArgsParser,
     parseColorMode,
     argsParser,
     maybeArgsParser
@@ -18,50 +16,29 @@ import DarkPlaces.Rcon hiding (connect, send)
 import DRcon.Polyfills (readMaybe)
 
 
-data ConnectionArgs = ConnectionArgs {
-    conServerString :: Maybe String,
-    conPassword  :: Maybe String,
-    conMode      :: Maybe RconMode,
-    conTimeDiff  :: Maybe Int,
-    conTimeout   :: Maybe Float,
-    conEncoding  :: Maybe DecodeType
+data ProtocolOptions = OnlyIPv4
+                     | OnlyIPv6
+                     | BothProtocols
+    deriving(Show, Read, Eq, Ord)
+
+
+data BaseArgs = BaseArgs {
+    confServerString :: String,
+    confPassword     :: Maybe String,
+    confMode         :: Maybe RconMode,
+    confTimeDiff     :: Maybe Int,
+    confTimeout      :: Maybe Float,
+    confEncoding     :: Maybe DecodeType,
+    confProtoOptions :: ProtocolOptions
 } deriving(Show, Read, Eq)
 
 
 data CommandArgs = CommandArgs {
-    conArgs      :: ConnectionArgs,
-    cliColor     :: Maybe Bool,
-    cliCommand   :: Maybe String
+    cliServerName   :: String,
+    cliBaseArgs     :: BaseArgs,
+    cliColor        :: Maybe Bool,
+    cliCommand      :: Maybe String
 } deriving(Show, Read, Eq)
-
-
-defaultConnectionArgs :: ConnectionArgs
-defaultConnectionArgs = ConnectionArgs {
-    conServerString=Nothing,
-    conPassword=Nothing,
-    conMode=Just TimeSecureRcon,
-    conTimeDiff=Just 0,
-    conTimeout=Just 1.5,
-    conEncoding=Just Utf8Lenient}
-
-
-maybeP :: ReadM a -> ReadM (Maybe a)
-maybeP = fmap Just
-
-
-mergeConnectionArgs :: ConnectionArgs -> ConnectionArgs -> ConnectionArgs
-mergeConnectionArgs f l = l {
-    conServerString = getLast $ Last (conServerString f) <> Last (conServerString l),
-    conPassword = getLast $ Last (conPassword f) <> Last (conPassword l),
-    conMode = getLast $ Last (conMode f) <> Last (conMode l),
-    conTimeDiff = getLast $ Last (conTimeDiff f) <> Last (conTimeDiff l),
-    conTimeout = getLast $ Last (conTimeout f) <> Last (conTimeout l),
-    conEncoding = getLast $ Last (conEncoding f) <> Last (conEncoding l)}
-
-
-instance Monoid ConnectionArgs where
-    mempty = ConnectionArgs Nothing Nothing Nothing Nothing Nothing Nothing
-    mappend = mergeConnectionArgs
 
 
 eitherArgs :: Either String a -> ReadM a
@@ -96,52 +73,19 @@ parseEncoding encname = case lookup encname encodings of
     Nothing -> Left "Error bad decode type"
 
 
-connectionArgsParser :: Parser ConnectionArgs
-connectionArgsParser = ConnectionArgs
-    <$> option (maybeP str) (
-        short 's'
-        <> long "server"
-        <> value Nothing
-        <> help "Server to connect or config section"
-        <> metavar "SERVER")
-    <*> option (maybeP str) (
-        short 'p'
-        <> value Nothing
-        <> long "password"
-        <> help "Server's password"
-        <> metavar "PASSWORD")
-    <*> option (maybeP $ str >>= eitherArgs . parseRconMode) (
-        short 'm'
-        <> long "mode"
-        <> value Nothing
-        <> help "Use secure rcon, same as `rcon_secure' cvar, 1 is default"
-        <> metavar "MODE")
-    <*> option (maybeP auto) (
-        short 'd'
-        <> long "time-diff"
-        <> value Nothing
-        <> help "Integer difference between client and server time, can be negative"
-        <> metavar "TIMEDIFF")
-    <*> option (maybeP $ auto >>= eitherArgs . checkTimeout) (
-        short 't'
-        <> long "timeout"
-        <> value Nothing
-        <> help "How many time wait for reponse after send or previous response"
-        <> metavar "TIMEOUT")
-    <*> option (maybeP $ str >>= eitherArgs . parseEncoding) (
-        short 'e'
-        <> long "encoding"
-        <> value Nothing
-        <> help "Server encoding. Major options is `utf8' and `nexuiz'"
-        <> metavar "ENCODING")
-
-
 parseColorMode :: String -> ReadM (Maybe Bool)
 parseColorMode mode_str
     | mode_str == "always" = return $ Just True
     | mode_str == "auto" = return Nothing
     | mode_str == "never" = return $ Just False
     | otherwise = readerError "value should be always, auto or never"
+
+
+protoOptionsParser :: Parser ProtocolOptions
+protoOptionsParser =
+    flag' OnlyIPv4 (short '4' <> help "Forces to use IPv4 addresses only")
+    <|> flag' OnlyIPv6 (short '6' <> help "Forces to use IPv6 addresses only")
+    <|> (pure BothProtocols)
 
 
 commandParser :: Parser String
@@ -151,14 +95,55 @@ commandParser = unwords <$> (some $ argument str (
 
 
 argsParser :: Parser CommandArgs
-argsParser = CommandArgs
-    <$> connectionArgsParser
-    <*> (option $ str >>= parseColorMode) (
+argsParser = argsConstructor
+    <$> protoOptionsParser
+    <*> optional (strOption (
+        short 'p'
+        <> long "password"
+        <> help "Server's password"
+        <> metavar "PASSWORD"))
+    <*> optional (option (str >>= eitherArgs . parseRconMode) (
+        short 'm'
+        <> long "mode"
+        <> help "Use secure rcon, same as `rcon_secure' cvar, 1 is default"
+        <> metavar "MODE"))
+    <*> optional (option auto (
+        short 'd'
+        <> long "time-diff"
+        <> help "Integer difference between client and server time, can be negative"
+        <> metavar "TIMEDIFF"))
+    <*> optional (option (auto >>= eitherArgs . checkTimeout) (
+        short 't'
+        <> long "timeout"
+        <> help "How many time wait for reponse after send or previous response"
+        <> metavar "TIMEOUT"))
+    <*> optional (option (str >>= eitherArgs . parseEncoding) (
+        short 'e'
+        <> long "encoding"
+        <> help "Server encoding. Major options is `utf8' and `nexuiz'"
+        <> metavar "ENCODING"))
+    <*> option (str >>= parseColorMode) (
         long "color"
         <> value Nothing
         <> help "Possible values are: `auto', `always' and `never'"
         <> metavar "COLOR_MODE")
+    <*> argument str (
+        help "Server to connect or config section"
+        <> metavar "SERVER")
     <*> optional commandParser
+  where
+    argsConstructor protoOpt password mode tdiff tout enc color server cmd =
+        let baseArgs = BaseArgs {confServerString=server,
+                                 confPassword=password,
+                                 confMode=mode,
+                                 confTimeDiff=tdiff,
+                                 confTimeout=tout,
+                                 confEncoding=enc,
+                                 confProtoOptions=protoOpt}
+        in CommandArgs {cliServerName=server,
+                        cliBaseArgs=baseArgs,
+                        cliColor=color,
+                        cliCommand=cmd}
 
 
 maybeArgsParser :: Parser (Maybe CommandArgs)

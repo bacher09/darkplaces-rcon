@@ -63,12 +63,15 @@ printRecv con parm@(time, color, enc) st = do
         Nothing -> streamEnd color st
 
 
-rconExec :: RconInfo -> String -> Bool -> Float -> DecodeType -> IO ()
-rconExec rcon command color time enc = do
-    con <- RCON.connect rcon
+rconExec :: DRconArgs -> String -> Bool -> IO ()
+rconExec dargs command color = do
+    con <- RCON.connect (connectInfo dargs)
     RCON.send con (BU.fromString command)
     printRecv con (time, color, enc) defaultStreamState
     RCON.close con
+  where
+    time = drconTimeout dargs
+    enc = drconEncoding dargs
 
 
 replLoop :: RconConnection -> Repl IO ()
@@ -127,9 +130,9 @@ replAction con cmd = case cmd of
         "use :? for help."
 
 
-rconRepl :: RconInfo -> Bool -> Float -> DecodeType -> IO ()
-rconRepl rcon color time enc = do
-    con <- RCON.connect rcon
+rconRepl :: DRconArgs -> Bool -> IO ()
+rconRepl dargs color = do
+    con <- RCON.connect (connectInfo dargs)
     hist_path <- historyPath
     let hline_settings = defaultSettings {historyFile=Just hist_path,
                                          autoAddHistory=True}
@@ -138,19 +141,22 @@ rconRepl rcon color time enc = do
                                 replDiffTime=time,
                                 replEncoding=enc}
     evalStateT (runInputT hline_settings $ replLoop con) repl_state
+  where
+    time = drconTimeout dargs
+    enc = drconEncoding dargs
 
 
 processArgs :: Maybe CommandArgs -> UtilError ()
 processArgs Nothing = liftIO $ putStrLn $ "Version: " ++ versionStr
 processArgs (Just args) = do
-    (rcon, time_out, enc) <- rconConfigure $ conArgs args
+    drcon_args <- rconConfigure (cliServerName args) (cliBaseArgs args)
     color <- liftIO $ case cliColor args of
         (Just c) -> return c
         Nothing -> supportColors
 
     case cliCommand args of
-        (Just command) -> liftIO $ rconExec rcon command color time_out enc
-        Nothing -> liftIO $ rconRepl rcon color time_out enc
+        (Just command) -> liftIO $ rconExec drcon_args command color
+        Nothing -> liftIO $ rconRepl drcon_args color
 
 
 main :: IO ()
