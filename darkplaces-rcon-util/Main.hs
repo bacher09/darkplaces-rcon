@@ -89,6 +89,9 @@ replAction con cmd = case cmd of
     UnknownCommand cmd _ -> do
         outputStrLn $ printf badCmd $ T.unpack cmd
         replLoop con
+    WrongArgument _ _ msg -> do
+        outputStrLn $ T.unpack msg
+        replLoop con
     RepeatLast -> do
         last <- lift $ replLastCmd <$> get
         case last of
@@ -134,15 +137,15 @@ rconRepl :: DRconArgs -> Bool -> IO ()
 rconRepl dargs color = do
     con <- RCON.connect (connectInfo dargs)
     hist_path <- historyPath
-    let hline_settings = defaultSettings {historyFile=Just hist_path,
+    let base_settings = defaultSettings {historyFile=Just hist_path,
                                          autoAddHistory=True}
     let repl_state = ReplState {replLastCmd=Nothing,
                                 replColor=color,
                                 replDiffTime=time,
                                 replEncoding=enc}
 
-    let hline_settings' = setComplete comp hline_settings
-    evalStateT (runInputT hline_settings' $ replLoop con) repl_state
+    let hline_settings = setComplete comp base_settings
+    evalStateT (runInputT hline_settings $ replLoop con) repl_state
   where
     time = drconTimeout dargs
     enc = drconEncoding dargs
