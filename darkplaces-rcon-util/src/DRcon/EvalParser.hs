@@ -2,6 +2,7 @@
 module DRcon.EvalParser (
     InputType(..),
     parseCommand,
+    internalAutoComplete,
     helpMessage
 ) where
 
@@ -35,6 +36,10 @@ cmdInfo = [
     (":version", "print program version")]
 
 
+topLevelCommands :: [Text]
+topLevelCommands = [":", ":?", ":quit", ":help", ":history", ":version"]
+
+
 helpMessage :: Text
 helpMessage = " Available commands:\n\n" `append` cmdList
   where
@@ -51,7 +56,16 @@ disambiguate cmd = case search_cmds of
     _             -> Nothing
   where
     search_cmds = filter (isPrefixOf cmd) commands
-    commands = [":quit", ":help", ":history", ":version"]
+    commands = topLevelCommands
+
+
+internalAutoComplete :: Text -> Text -> [Text]
+internalAutoComplete prev cmd = case prev_cmd of
+    "" -> filter (isPrefixOf cmd) topLevelCommands
+    _  -> []
+  where
+    sprev = strip prev
+    prev_cmd = fromMaybe sprev $ disambiguate sprev
 
 
 parseCommand :: String -> InputType

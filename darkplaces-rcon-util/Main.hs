@@ -15,7 +15,7 @@ import System.Console.Haskeline
 import System.Console.Haskeline.History (historyLines)
 import Control.Monad.State.Strict
 import Data.Maybe
-import Data.Text (unpack)
+import qualified Data.Text as T
 import Data.Text.Encoding as TE
 import Text.Printf
 
@@ -87,7 +87,7 @@ replAction con cmd = case cmd of
     Quit -> liftIO $ RCON.close con
     Empty -> replLoop con
     UnknownCommand cmd _ -> do
-        outputStrLn $ printf badCmd $ unpack cmd
+        outputStrLn $ printf badCmd $ T.unpack cmd
         replLoop con
     RepeatLast -> do
         last <- lift $ replLastCmd <$> get
@@ -95,7 +95,7 @@ replAction con cmd = case cmd of
             Nothing -> outputStrLn noLastCmd >> replLoop con
             Just last_cmd -> replAction con last_cmd
     Help -> do
-        outputStrLn $ unpack helpMessage
+        outputStrLn $ T.unpack helpMessage
         updateLastCmd cmd
         replLoop con
     Version -> do
@@ -140,10 +140,15 @@ rconRepl dargs color = do
                                 replColor=color,
                                 replDiffTime=time,
                                 replEncoding=enc}
-    evalStateT (runInputT hline_settings $ replLoop con) repl_state
+
+    let hline_settings' = setComplete comp hline_settings
+    evalStateT (runInputT hline_settings' $ replLoop con) repl_state
   where
     time = drconTimeout dargs
     enc = drconEncoding dargs
+    compliter prev cmd = return $
+        (simpleCompletion . T.unpack) <$> internalAutoComplete (T.pack prev) (T.pack cmd)
+    comp = completeWordWithPrev Nothing " \t" compliter
 
 
 processArgs :: Maybe CommandArgs -> UtilError ()
