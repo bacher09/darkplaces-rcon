@@ -19,6 +19,7 @@ data InputType = Empty
                | Help
                | Version
                | RepeatLast
+               | Login
                | History (Maybe Int)
                | WrongArgument Text Text Text
                | UnknownCommand Text Text
@@ -32,12 +33,14 @@ cmdInfo = [
     (":", "repeat last command"),
     (":help, :?", "display list of commands"),
     (":history [n]", "show n (10 by default) last commands"),
+    (":login", "promp for server password"),
     (":quit", "quit from drcon"),
     (":version", "print program version")]
 
 
+-- list of commands in priority order
 topLevelCommands :: [Text]
-topLevelCommands = [":", ":?", ":quit", ":help", ":history", ":version"]
+topLevelCommands = [":help", ":quit", ":login", ":history", ":version", ":", ":?"]
 
 
 helpMessage :: Text
@@ -55,9 +58,7 @@ disambiguate cmd
     | T.length cmd > 1 = listToMaybe search_cmds
     | otherwise = Nothing
   where
-    search_cmds = filter (isPrefixOf cmd) commandPriorities
-    -- list of disambiguateble commands in priority order
-    commandPriorities = [ ":help", ":quit", ":history", ":version"]
+    search_cmds = filter (isPrefixOf cmd) topLevelCommands
 
 
 internalAutoComplete :: Text -> Text -> [Text]
@@ -91,6 +92,7 @@ parseInternalCommand ":quit" _ = Quit
 parseInternalCommand ":help" "" = Help
 parseInternalCommand ":?" "" = Help
 parseInternalCommand ":" "" = RepeatLast
+parseInternalCommand ":login" "" = Login
 parseInternalCommand ":version" "" = Version
 parseInternalCommand ":history" "" = History Nothing
 parseInternalCommand ":history" v = case decimal v of
@@ -101,5 +103,5 @@ parseInternalCommand cmd args
     | cmd `elem` withoutArgs = WrongArgument cmd args noArgsMsg
     | otherwise = UnknownCommand cmd args
   where
-    withoutArgs = [":", ":help", ":?", ":version"]
+    withoutArgs = [":", ":help", ":?", ":version", ":login"]
     noArgsMsg = concat ["Error:  command \"", cmd,"\" takes no arguments"]

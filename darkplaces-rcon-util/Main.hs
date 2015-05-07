@@ -105,6 +105,12 @@ replAction con cmd = case cmd of
         outputStrLn $ "Version: " ++ versionStr
         updateLastCmd cmd
         replLoop con
+    Login -> do
+        pwd <- getPassword Nothing "Password: "
+        case pwd of
+            (Just pass) -> liftIO $ RCON.setPassword con (BU.fromString pass)
+            Nothing -> return ()
+        replLoop con
     History v -> do
         -- 10 is default value for history
         let num = fromMaybe 10 v
