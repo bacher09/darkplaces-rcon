@@ -5,6 +5,7 @@ module DRcon.CommandArgs (
     parseRconMode,
     checkTimeout,
     parseEncoding,
+    showEncoding,
     parseColorMode,
     argsParser,
     maybeArgsParser
@@ -13,6 +14,8 @@ import Options.Applicative
 import DarkPlaces.Text (DecodeType(..))
 import DarkPlaces.Rcon hiding (connect, send)
 import DRcon.Polyfills (readMaybe)
+import Data.Tuple (swap)
+import Data.Maybe (fromMaybe)
 
 
 data BaseArgs = BaseArgs {
@@ -63,7 +66,14 @@ encodings = [
 parseEncoding :: String -> Either String DecodeType
 parseEncoding encname = case lookup encname encodings of
     Just v -> Right v
-    Nothing -> Left "Error bad decode type"
+    Nothing -> Left "Error bad decode type. Major values are ut8 and nexuiz"
+
+
+showEncoding :: DecodeType -> String
+showEncoding enc = fromMaybe first $ lookup enc encLst
+  where
+    encLst = map swap encodings
+    first = fst $ head encodings
 
 
 parseColorMode :: String -> ReadM (Maybe Bool)

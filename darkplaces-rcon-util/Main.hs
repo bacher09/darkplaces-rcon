@@ -3,7 +3,7 @@ import DRcon.CommandArgs
 import DRcon.ConfigFile
 import DRcon.Paths
 import DRcon.EvalParser
-import DarkPlaces.Rcon hiding (connect, send)
+import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
 import Options.Applicative
@@ -18,6 +18,7 @@ import Data.Maybe
 import qualified Data.Text as T
 import Data.Text.Encoding as TE
 import Text.Printf
+import Data.Char (toUpper)
 
 #ifdef CABAL_VERSION
 import Paths_darkplaces_rcon_util (version)
@@ -34,9 +35,9 @@ versionStr :: String
 data ReplState = ReplState {
     replLastCmd  :: Maybe InputType,
     replColor    :: Bool,
-    replDiffTime :: Float,
+    replTimeout  :: Float,
     replEncoding :: DecodeType
-} deriving (Eq, Show, Read)
+} deriving (Eq, Show)
 
 
 type Repl m = InputT (StateT ReplState m)
@@ -79,19 +80,17 @@ replLoop con = handle (\Interrupt -> replLoop con) $ withInterrupt $ do
     minput <- getInputLine "> "
     case minput of
         Nothing    -> liftIO $ RCON.close con
-        Just input -> replAction con (parseCommand input)
+        Just input -> case parseCommand input of
+            Left e -> do
+                outputStrLn $ show e
+                replLoop con
+            Right a -> replAction con a
 
 
 replAction :: RconConnection -> InputType -> Repl IO ()
 replAction con cmd = case cmd of
     Quit -> liftIO $ RCON.close con
     Empty -> replLoop con
-    UnknownCommand cmd _ -> do
-        outputStrLn $ printf badCmd $ T.unpack cmd
-        replLoop con
-    WrongArgument _ _ msg -> do
-        outputStrLn $ T.unpack msg
-        replLoop con
     RepeatLast -> do
         last <- lift $ replLastCmd <$> get
         case last of
@@ -99,6 +98,31 @@ replAction con cmd = case cmd of
             Just last_cmd -> replAction con last_cmd
     Help -> do
         outputStrLn $ T.unpack helpMessage
+        updateLastCmd cmd
+        replLoop con
+    ListVars -> do
+        outputStrLn $ T.unpack helpVars
+        updateLastCmd cmd
+        replLoop con
+    Show var -> do
+        val <- showVar <$> case var of
+            Mode -> liftIO $ SetMode <$> getMode con
+            TimeDiff -> liftIO $ SetTimeDiff <$> getTimeDiff con
+            Timeout -> lift $ SetTimeout . replTimeout <$> get
+            Encoding -> lift $ SetEncoding . replEncoding <$> get
+            Color -> lift $ SetColor . replColor <$> get
+
+        outputStrLn $ printf "%s: %s" (toTitle $ show var) val
+        updateLastCmd cmd
+        replLoop con
+    Set var_set -> do
+        case var_set of
+            SetMode mode -> liftIO $ setMode con mode
+            SetTimeDiff diff -> liftIO $ setTimeDiff con diff
+            SetTimeout t -> lift $ modify (\s -> s {replTimeout=t})
+            SetEncoding enc -> lift $ modify (\s -> s {replEncoding=enc})
+            SetColor c -> lift $ modify (\s -> s {replColor=c})
+
         updateLastCmd cmd
         replLoop con
     Version -> do
@@ -124,9 +148,10 @@ replAction con cmd = case cmd of
         updateLastCmd cmd
         replLoop con
   where
+    toTitle s = (\(f, e) -> map toUpper f ++ e) $ splitAt 1 s
     rconEval con command = do
-        repl_state <- lift $ get
-        let time = replDiffTime repl_state
+        repl_state <- lift get
+        let time = replTimeout repl_state
             color = replColor repl_state
             enc = replEncoding repl_state
 
@@ -134,8 +159,6 @@ replAction con cmd = case cmd of
         liftIO $ printRecv con (time, color, enc) defaultStreamState
 
     noLastCmd = "there is no last command to perform\n" ++
-        "use :? for help."
-    badCmd = "unknown command '%s'\n" ++
         "use :? for help."
 
 
@@ -147,7 +170,7 @@ rconRepl dargs color = do
                                          autoAddHistory=True}
     let repl_state = ReplState {replLastCmd=Nothing,
                                 replColor=color,
-                                replDiffTime=time,
+                                replTimeout=time,
                                 replEncoding=enc}
 
     let hline_settings = setComplete comp base_settings

@@ -14,7 +14,10 @@ module DarkPlaces.Rcon (
     disableLog,
     setPassword,
     setMode,
-    setTimeDiff
+    setTimeDiff,
+    getPassword,
+    getMode,
+    getTimeDiff
 ) where
 import DarkPlaces.Rcon.Internal
 import qualified Data.ByteString as B
@@ -65,10 +68,6 @@ defaultRcon = RconInfo {rconHost="localhost",
                         rconPassword=B.empty,
                         rconTimeDiff=0,
                         rconProtoOpt=BothProtocols}
-
-
-getConnectionInfo :: (RconInfo -> a) -> RconConnection -> IO a
-getConnectionInfo f = fmap f . readIORef . connInfo
 
 
 sockGetChallenge :: Socket -> IO B.ByteString
@@ -181,6 +180,10 @@ setParam :: RconConnection -> (RconInfo -> RconInfo) -> IO ()
 setParam c f = atomicModifyIORef (connInfo c) $ \r -> (f r, ())
 
 
+getParam :: RconConnection -> (RconInfo -> a) -> IO a
+getParam c fun = fun `fmap` readIORef (connInfo c)
+
+
 setPassword :: RconConnection -> B.ByteString -> IO ()
 setPassword c passw = setParam c $ \rcon -> rcon {rconPassword=passw}
 
@@ -191,3 +194,15 @@ setMode c mode = setParam c $ \rcon -> rcon {rconMode=mode}
 
 setTimeDiff :: RconConnection -> Int -> IO ()
 setTimeDiff c time = setParam c $ \rcon -> rcon {rconTimeDiff=time}
+
+
+getPassword :: RconConnection -> IO B.ByteString
+getPassword c = getParam c rconPassword
+
+
+getMode :: RconConnection -> IO RconMode
+getMode c = getParam c rconMode
+
+
+getTimeDiff :: RconConnection -> IO Int
+getTimeDiff c = getParam c rconTimeDiff
