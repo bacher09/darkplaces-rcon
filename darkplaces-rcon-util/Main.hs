@@ -32,6 +32,10 @@ versionStr = "dev"
 versionStr :: String
 
 
+versionInfo :: String
+versionInfo = "drcon " ++ versionStr
+
+
 data ReplState = ReplState {
     replLastCmd  :: Maybe InputType,
     replColor    :: Bool,
@@ -126,7 +130,7 @@ replAction con cmd = case cmd of
         updateLastCmd cmd
         replLoop con
     Version -> do
-        outputStrLn $ "Version: " ++ versionStr
+        outputStrLn versionInfo
         updateLastCmd cmd
         replLoop con
     Login -> do
@@ -184,7 +188,7 @@ rconRepl dargs color = do
 
 
 processArgs :: Maybe CommandArgs -> UtilError ()
-processArgs Nothing = liftIO $ putStrLn $ "Version: " ++ versionStr
+processArgs Nothing = liftIO $ putStrLn versionInfo
 processArgs (Just args) = do
     drcon_args <- rconConfigure (cliServerName args) (cliBaseArgs args)
     color <- liftIO $ case cliColor args of
