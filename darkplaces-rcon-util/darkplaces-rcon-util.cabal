@@ -14,7 +14,8 @@ library
   exposed-modules:     DRcon.CommandArgs,
                        DRcon.ConfigFile,
                        DRcon.Paths,
-                       DRcon.EvalParser
+                       DRcon.EvalParser,
+                       DRcon.Prompt
 
   other-modules:       DRcon.Polyfills
 
@@ -22,6 +23,7 @@ library
                        mtl >=2.0,
                        bytestring >=0.10 && <0.11,
                        optparse-applicative >= 0.10 && < 0.12,
+                       containers >= 0.5,
                        utf8-string >=0.3,
                        ConfigFile >=1.1,
                        filepath,
