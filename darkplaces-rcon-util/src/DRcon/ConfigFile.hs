@@ -6,6 +6,8 @@ module DRcon.ConfigFile (
 ) where
 import DRcon.CommandArgs
 import DRcon.Paths
+import DRcon.Prompt (defaultPrompt, promptEnvName, readPrompt)
+import DRcon.Polyfills (lookupEnv)
 import DarkPlaces.Text (DecodeType(..))
 import Data.ConfigFile
 import System.IO.Error (isDoesNotExistError)
@@ -24,7 +26,8 @@ data DRconArgs = DRconArgs {
     connectInfo   :: RconInfo,
     connectName   :: String,
     drconTimeout  :: Float,
-    drconEncoding :: DecodeType
+    drconEncoding :: DecodeType,
+    drconPrompt   :: String
 } deriving (Show, Read, Eq)
 
 
@@ -54,6 +57,22 @@ parseAddrFamily val = case val of
     "inet"  -> Right OnlyIPv4
     "inet6" -> Right OnlyIPv6
     _       -> Left "Bad addrfamily, supported options: any, inet, inet6"
+
+
+getPrompt :: Maybe ConfigParser -> UtilError String
+getPrompt mconf = do
+    conf_prompt <- case mconf of
+        Just c -> case getMaybe c "DEFAULT" "prompt" of
+            Right v -> return v
+            Left _ -> throwError "Error while parsing file"
+        Nothing -> return Nothing
+
+    env_prompt <- liftIO $ lookupEnv promptEnvName
+    let prompt = fromMaybe defaultPrompt (conf_prompt <|> env_prompt)
+
+    case readPrompt prompt of
+        (Right v) -> return v
+        (Left s)  -> throwError s
 
 
 argsFromConfig :: (MonadError CPError m) => ConfigParser -> String -> m BaseArgs
@@ -109,8 +128,8 @@ getPasswordOrExit = do
         getPassword Nothing "Password: "
 
 
-getDRconArgs :: String -> BaseArgs -> UtilError DRconArgs
-getDRconArgs name args = do
+getDRconArgs :: String -> BaseArgs -> String -> UtilError DRconArgs
+getDRconArgs name args prompt = do
     (host, port) <- case defaultHostAndPort "26000" server of
         Nothing -> throwError "Error while parsing server string"
         (Just v) -> return v
@@ -126,7 +145,8 @@ getDRconArgs name args = do
     return $ DRconArgs {connectInfo=rcon,
                         drconTimeout=time_out,
                         drconEncoding=enc,
-                        connectName=name}
+                        connectName=name,
+                        drconPrompt=prompt}
   where
     server = confServerString args
     mode = fromMaybe TimeSecureRcon $ confMode args
@@ -158,4 +178,5 @@ rconConfigure name args = do
         (Just (Right c)) -> return $ mergeArgs args c
         (Just (Left _)) -> throwError "Error while parsing config"
 
-    getDRconArgs name new_args
+    prompt <- getPrompt mconf
+    getDRconArgs name new_args prompt

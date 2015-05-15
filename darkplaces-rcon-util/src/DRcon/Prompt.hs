@@ -5,7 +5,9 @@ module DRcon.Prompt (
     formatPrompt,
     renderPrompt,
     getPromptVars,
-    readPrompt
+    readPrompt,
+    defaultPrompt,
+    promptEnvName
 ) where
 import qualified Data.Map.Strict as SM
 import Data.Tuple (swap)
@@ -51,6 +53,14 @@ newtype Prompt = Prompt PromptFormater
 
 instance Show Prompt where
     show (Prompt ts) = show $ concatEscape $ map renderToken ts
+
+
+defaultPrompt :: String
+defaultPrompt = "%P %N> "
+
+
+promptEnvName :: String
+promptEnvName = "DRCON_PROMPT"
 
 
 formatSymbols :: [(Char, PromptToken)]

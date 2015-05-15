@@ -189,14 +189,13 @@ rconRepl dargs color = do
                                 replColor=color,
                                 replTimeout=drconTimeout dargs,
                                 replEncoding=drconEncoding dargs,
-                                replPromp=prompt,
+                                replPromp=newPrompt $ drconPrompt dargs,
                                 replConnection=con,
                                 replName=connectName dargs}
 
     let hline_settings = setComplete comp base_settings
     evalStateT (runInputT hline_settings replLoop) repl_state
   where
-    prompt = newPrompt "%P %N> "
     compliter prev cmd = return $
         (simpleCompletion . T.unpack) <$> internalAutoComplete (T.pack prev) (T.pack cmd)
     comp = completeWordWithPrev Nothing " \t" compliter
