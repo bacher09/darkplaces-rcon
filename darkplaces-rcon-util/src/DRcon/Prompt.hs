@@ -15,6 +15,7 @@ import System.Locale (defaultTimeLocale)
 import Data.Time.Format (formatTime)
 import DarkPlaces.Rcon
 import DRcon.Polyfills (readMaybe)
+import DRcon.Version (versionStr, programName)
 
 
 data FormaterToken a = SimpleText a
@@ -25,6 +26,8 @@ data FormaterToken a = SimpleText a
                      | SystemTimeSeconds
                      | SystemDate
                      | ConnectMode
+                     | ProgramName
+                     | ProgramVersion
     deriving(Show, Read, Eq, Ord)
 
 
@@ -59,6 +62,8 @@ formatSymbols = [
     ('*', SystemTimeSeconds),
     ('D', SystemDate),
     ('m', ConnectMode),
+    ('P', ProgramName),
+    ('v', ProgramVersion),
     ('%', SimpleText "%")]
 
 
@@ -124,6 +129,8 @@ tokenRenderFrom v SystemTime = promptTime v
 tokenRenderFrom v SystemTimeSeconds = promptTimeSeconds v
 tokenRenderFrom v SystemDate = promptDate v
 tokenRenderFrom v ConnectMode = promptConnectMode v
+tokenRenderFrom _ ProgramName = programName
+tokenRenderFrom _ ProgramVersion = versionStr
 
 
 formatPrompt :: TokenRender -> Prompt -> String

@@ -196,7 +196,7 @@ rconRepl dargs color = do
     let hline_settings = setComplete comp base_settings
     evalStateT (runInputT hline_settings replLoop) repl_state
   where
-    prompt = newPrompt "drcon %N> "
+    prompt = newPrompt "%P %N> "
     compliter prev cmd = return $
         (simpleCompletion . T.unpack) <$> internalAutoComplete (T.pack prev) (T.pack cmd)
     comp = completeWordWithPrev Nothing " \t" compliter
