@@ -4,6 +4,7 @@ import DRcon.ConfigFile
 import DRcon.Paths
 import DRcon.EvalParser
 import DRcon.Prompt
+import DRcon.Version (versionInfo)
 import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
@@ -20,21 +21,6 @@ import qualified Data.Text as T
 import Data.Text.Encoding as TE
 import Text.Printf
 import Data.Char (toUpper)
-
-#ifdef CABAL_VERSION
-import Paths_darkplaces_rcon_util (version)
-import Data.Version (showVersion)
-
-versionStr = showVersion version
-#else
-versionStr = "dev"
-#endif
-
-versionStr :: String
-
-
-versionInfo :: String
-versionInfo = "drcon " ++ versionStr
 
 
 data ReplState = ReplState {
