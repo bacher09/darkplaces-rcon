@@ -3,6 +3,7 @@ import DRcon.CommandArgs
 import DRcon.ConfigFile
 import DRcon.Paths
 import DRcon.EvalParser
+import DRcon.Prompt
 import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
@@ -37,11 +38,14 @@ versionInfo = "drcon " ++ versionStr
 
 
 data ReplState = ReplState {
-    replLastCmd  :: Maybe InputType,
-    replColor    :: Bool,
-    replTimeout  :: Float,
-    replEncoding :: DecodeType
-} deriving (Eq, Show)
+    replLastCmd    :: Maybe InputType,
+    replColor      :: Bool,
+    replTimeout    :: Float,
+    replEncoding   :: DecodeType,
+    replPromp      :: (String, Prompt),
+    replConnection :: RconConnection,
+    replName       :: String
+}
 
 
 type Repl m = InputT (StateT ReplState m)
@@ -49,6 +53,14 @@ type Repl m = InputT (StateT ReplState m)
 
 updateLastCmd :: (Monad m) => InputType -> Repl m ()
 updateLastCmd cmd = lift $ modify (\s -> s {replLastCmd=Just cmd})
+
+
+setPrompt :: (Monad m) => String -> Repl m ()
+setPrompt str = lift $ modify (\s -> s {replPromp=newPrompt str})
+
+
+newPrompt :: String -> (String, Prompt)
+newPrompt str = (str, parsePrompt str)
 
 
 toMicroseconds :: Float -> Int
@@ -79,36 +91,50 @@ rconExec dargs command color = do
     enc = drconEncoding dargs
 
 
-replLoop :: RconConnection -> Repl IO ()
-replLoop con = handle (\Interrupt -> replLoop con) $ withInterrupt $ do
-    minput <- getInputLine "> "
+getInputLineWithPrompt :: Repl IO (Maybe String)
+getInputLineWithPrompt = do
+    state <- lift get
+    let prompt = snd $ replPromp state
+        con    = replConnection state
+        name   = replName state
+
+    prompt_vars <- liftIO $ getPromptVars name con
+    getInputLine $ renderPrompt prompt_vars prompt
+
+
+replLoop :: Repl IO ()
+replLoop = handle (\Interrupt -> replLoop) $ withInterrupt $ do
+    minput <- getInputLineWithPrompt
     case minput of
-        Nothing    -> liftIO $ RCON.close con
+        Nothing    -> lift (replConnection <$> get) >>= liftIO . RCON.close
         Just input -> case parseCommand input of
             Left e -> do
                 outputStrLn $ show e
-                replLoop con
-            Right a -> replAction con a
+                replLoop
+            Right a -> replAction a
 
 
-replAction :: RconConnection -> InputType -> Repl IO ()
-replAction con cmd = case cmd of
-    Quit -> liftIO $ RCON.close con
-    Empty -> replLoop con
+replAction :: InputType -> Repl IO ()
+replAction cmd = case cmd of
+    Empty -> replLoop
+    Quit -> do
+        con <- lift $ replConnection <$> get
+        liftIO $ RCON.close con
     RepeatLast -> do
         last <- lift $ replLastCmd <$> get
         case last of
-            Nothing -> outputStrLn noLastCmd >> replLoop con
-            Just last_cmd -> replAction con last_cmd
+            Nothing -> outputStrLn noLastCmd >> replLoop
+            Just last_cmd -> replAction last_cmd
     Help -> do
         outputStrLn $ T.unpack helpMessage
         updateLastCmd cmd
-        replLoop con
+        replLoop
     ListVars -> do
         outputStrLn $ T.unpack helpVars
         updateLastCmd cmd
-        replLoop con
+        replLoop
     Show var -> do
+        con <- lift $ replConnection <$> get
         val <- showVar <$> case var of
             Mode -> liftIO $ SetMode <$> getMode con
             TimeDiff -> liftIO $ SetTimeDiff <$> getTimeDiff con
@@ -118,8 +144,9 @@ replAction con cmd = case cmd of
 
         outputStrLn $ printf "%s: %s" (toTitle $ show var) val
         updateLastCmd cmd
-        replLoop con
+        replLoop
     Set var_set -> do
+        con <- lift $ replConnection <$> get
         case var_set of
             SetMode mode -> liftIO $ setMode con mode
             SetTimeDiff diff -> liftIO $ setTimeDiff con diff
@@ -128,17 +155,18 @@ replAction con cmd = case cmd of
             SetColor c -> lift $ modify (\s -> s {replColor=c})
 
         updateLastCmd cmd
-        replLoop con
+        replLoop
     Version -> do
         outputStrLn versionInfo
         updateLastCmd cmd
-        replLoop con
+        replLoop
     Login -> do
         pwd <- getPassword Nothing "Password: "
+        con <- lift $ replConnection <$> get
         case pwd of
             (Just pass) -> liftIO $ RCON.setPassword con (BU.fromString pass)
             Nothing -> return ()
-        replLoop con
+        replLoop
     History v -> do
         -- 10 is default value for history
         let num = fromMaybe 10 v
@@ -146,18 +174,19 @@ replAction con cmd = case cmd of
         let h_lines = take num $ historyLines history
         forM_ h_lines $ outputStrLn . (replicate 2 ' ' ++)
         updateLastCmd cmd
-        replLoop con
+        replLoop
     RconCommand command -> do
-        rconEval con $ TE.encodeUtf8 command
+        rconEval $ TE.encodeUtf8 command
         updateLastCmd cmd
-        replLoop con
+        replLoop
   where
     toTitle s = (\(f, e) -> map toUpper f ++ e) $ splitAt 1 s
-    rconEval con command = do
+    rconEval command = do
         repl_state <- lift get
         let time = replTimeout repl_state
             color = replColor repl_state
             enc = replEncoding repl_state
+            con = replConnection repl_state
 
         liftIO $ RCON.send con command
         liftIO $ printRecv con (time, color, enc) defaultStreamState
@@ -174,14 +203,16 @@ rconRepl dargs color = do
                                          autoAddHistory=True}
     let repl_state = ReplState {replLastCmd=Nothing,
                                 replColor=color,
-                                replTimeout=time,
-                                replEncoding=enc}
+                                replTimeout=drconTimeout dargs,
+                                replEncoding=drconEncoding dargs,
+                                replPromp=prompt,
+                                replConnection=con,
+                                replName=connectName dargs}
 
     let hline_settings = setComplete comp base_settings
-    evalStateT (runInputT hline_settings $ replLoop con) repl_state
+    evalStateT (runInputT hline_settings replLoop) repl_state
   where
-    time = drconTimeout dargs
-    enc = drconEncoding dargs
+    prompt = newPrompt "drcon %N> "
     compliter prev cmd = return $
         (simpleCompletion . T.unpack) <$> internalAutoComplete (T.pack prev) (T.pack cmd)
     comp = completeWordWithPrev Nothing " \t" compliter

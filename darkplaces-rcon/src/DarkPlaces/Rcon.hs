@@ -17,7 +17,9 @@ module DarkPlaces.Rcon (
     setTimeDiff,
     getPassword,
     getMode,
-    getTimeDiff
+    getTimeDiff,
+    getHost,
+    getPort
 ) where
 import DarkPlaces.Rcon.Internal
 import qualified Data.ByteString as B
@@ -206,3 +208,11 @@ getMode c = getParam c rconMode
 
 getTimeDiff :: RconConnection -> IO Int
 getTimeDiff c = getParam c rconTimeDiff
+
+
+getHost :: RconConnection -> IO HostName
+getHost c = getParam c rconHost
+
+
+getPort :: RconConnection -> IO ServiceName
+getPort c = getParam c rconPort

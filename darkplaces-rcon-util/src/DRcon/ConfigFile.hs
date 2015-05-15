@@ -22,6 +22,7 @@ import System.Exit
 
 data DRconArgs = DRconArgs {
     connectInfo   :: RconInfo,
+    connectName   :: String,
     drconTimeout  :: Float,
     drconEncoding :: DecodeType
 } deriving (Show, Read, Eq)
@@ -108,8 +109,8 @@ getPasswordOrExit = do
         getPassword Nothing "Password: "
 
 
-getDRconArgs :: BaseArgs -> UtilError DRconArgs
-getDRconArgs args = do
+getDRconArgs :: String -> BaseArgs -> UtilError DRconArgs
+getDRconArgs name args = do
     (host, port) <- case defaultHostAndPort "26000" server of
         Nothing -> throwError "Error while parsing server string"
         (Just v) -> return v
@@ -124,7 +125,8 @@ getDRconArgs args = do
                           rconProtoOpt=proto_opt}
     return $ DRconArgs {connectInfo=rcon,
                         drconTimeout=time_out,
-                        drconEncoding=enc}
+                        drconEncoding=enc,
+                        connectName=name}
   where
     server = confServerString args
     mode = fromMaybe TimeSecureRcon $ confMode args
@@ -156,4 +158,4 @@ rconConfigure name args = do
         (Just (Right c)) -> return $ mergeArgs args c
         (Just (Left _)) -> throwError "Error while parsing config"
 
-    getDRconArgs new_args
+    getDRconArgs name new_args

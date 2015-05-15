@@ -1,9 +1,17 @@
 module DRcon.Prompt (
+    PromptVars(..),
     Prompt,
-    parsePrompt
+    parsePrompt,
+    formatPrompt,
+    renderPrompt,
+    getPromptVars
 ) where
 import qualified Data.Map.Strict as SM
 import Data.Tuple (swap)
+import Data.Time.LocalTime
+import System.Locale (defaultTimeLocale)
+import Data.Time.Format (formatTime)
+import DarkPlaces.Rcon
 
 
 data FormaterToken a = SimpleText a
@@ -17,10 +25,22 @@ data FormaterToken a = SimpleText a
     deriving(Show, Read, Eq, Ord)
 
 
+data PromptVars = PromptVars {
+    promptName        :: String,
+    promptHost        :: String,
+    promptPort        :: String,
+    promptTime        :: String,
+    promptTimeSeconds :: String,
+    promptDate        :: String,
+    promptConnectMode :: String}
+    deriving (Show, Read, Eq)
+
+
 type PromptToken = FormaterToken String
 type PromptFormater = [PromptToken]
 type TokenRender = (PromptToken -> String)
 newtype Prompt = Prompt PromptFormater
+    deriving (Eq)
 
 
 instance Show Prompt where
@@ -92,9 +112,41 @@ renderToken t = case SM.lookup t tokensMap of
     tokensMap = SM.fromList $ map swap formatSymbols
 
 
-renderPromp :: TokenRender -> Prompt -> String
-renderPromp fun (Prompt prompt) = concatMap fun prompt
+tokenRenderFrom :: PromptVars -> TokenRender
+tokenRenderFrom _ (SimpleText a) = a
+tokenRenderFrom v ServerName = promptName v
+tokenRenderFrom v ServerHost = promptHost v
+tokenRenderFrom v ServerPort = promptPort v
+tokenRenderFrom v SystemTime = promptTime v
+tokenRenderFrom v SystemTimeSeconds = promptTimeSeconds v
+tokenRenderFrom v SystemDate = promptDate v
+tokenRenderFrom v ConnectMode = promptConnectMode v
+
+
+formatPrompt :: TokenRender -> Prompt -> String
+formatPrompt fun (Prompt prompt) = concatMap fun prompt
 
 
 parsePrompt :: String -> Prompt
 parsePrompt = Prompt . simpleParser
+
+
+renderPrompt :: PromptVars -> Prompt -> String
+renderPrompt vars prom = formatPrompt (tokenRenderFrom vars) prom
+
+
+getPromptVars :: String -> RconConnection -> IO PromptVars
+getPromptVars name con = do
+    date_time <- getZonedTime
+    host <- getHost con
+    port <- getPort con
+    mode <- getMode con
+    return PromptVars {promptName=name,
+                       promptHost=host,
+                       promptPort=port,
+                       promptTime=dateFormater date_time "%R",
+                       promptTimeSeconds=dateFormater date_time "%T",
+                       promptDate=dateFormater date_time "%F",
+                       promptConnectMode=show $ fromEnum mode}
+  where
+    dateFormater t f = formatTime defaultTimeLocale f t
