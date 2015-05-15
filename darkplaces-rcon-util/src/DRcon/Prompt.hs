@@ -74,7 +74,9 @@ formatSymbols = [
     ('m', ConnectMode),
     ('P', ProgramName),
     ('v', ProgramVersion),
-    ('%', SimpleText "%")]
+    ('%', SimpleText "%"),
+    ('{', SimpleText "\ESC"), -- same as \ESC
+    ('}', SimpleText "\STX")] -- same as \STX
 
 
 formatSymbolsMap :: SM.Map Char PromptToken
