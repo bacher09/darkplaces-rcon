@@ -21,6 +21,7 @@ import Data.Text.Read
 import Control.Monad.Error
 import Control.Applicative ((<$>))
 import DRcon.CommandArgs (parseRconMode, parseEncoding, showEncoding)
+import DRcon.Prompt (readPrompt)
 import DarkPlaces.Rcon (RconMode)
 import DarkPlaces.Text (DecodeType(..))
 import Data.Monoid
@@ -39,6 +40,7 @@ data EvalVar = Mode
              | Timeout
              | Encoding
              | Color
+             | PromptVar
     deriving(Eq, Ord, Bounded, Enum)
 
 
@@ -47,6 +49,7 @@ data VarValue = SetMode RconMode
               | SetTimeout Float
               | SetEncoding DecodeType
               | SetColor Bool
+              | SetPrompt String
     deriving(Eq)
 
 
@@ -89,6 +92,7 @@ instance Show EvalVar where
     show Timeout = "timeout"
     show Encoding = "encoding"
     show Color = "color"
+    show PromptVar = "prompt"
 
 
 instance Show VarValue where
@@ -138,6 +142,7 @@ parseEvalVar var = case var of
     "timeout"  -> Just Timeout
     "encoding" -> Just Encoding
     "color"    -> Just Color
+    "prompt"   -> Just PromptVar
     _          -> Nothing
 
 
@@ -152,6 +157,7 @@ showVar (SetTimeDiff d) = show d
 showVar (SetTimeout tm) = show tm
 showVar (SetEncoding enc) = showEncoding enc
 showVar (SetColor c) = showBool c
+showVar (SetPrompt p) = show p
 
 
 getVarName :: VarValue -> EvalVar
@@ -160,6 +166,7 @@ getVarName (SetTimeDiff _) = TimeDiff
 getVarName (SetTimeout _) = Timeout
 getVarName (SetEncoding _) = Encoding
 getVarName (SetColor _) = Color
+getVarName (SetPrompt _) = PromptVar
 
 
 parseBool :: Text -> Either String Bool
@@ -188,6 +195,7 @@ parseSetVar Timeout val = case rational val of
     _               -> throwError "Value should be float"
 parseSetVar Encoding val = SetEncoding <$> parseEncoding (unpack val)
 parseSetVar Color val = SetColor <$> parseBool val
+parseSetVar PromptVar val = SetPrompt <$> readPrompt (unpack val)
 
 
 disambiguate :: Text -> Maybe Text

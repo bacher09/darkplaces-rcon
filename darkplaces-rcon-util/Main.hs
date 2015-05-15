@@ -55,10 +55,6 @@ updateLastCmd :: (Monad m) => InputType -> Repl m ()
 updateLastCmd cmd = lift $ modify (\s -> s {replLastCmd=Just cmd})
 
 
-setPrompt :: (Monad m) => String -> Repl m ()
-setPrompt str = lift $ modify (\s -> s {replPromp=newPrompt str})
-
-
 newPrompt :: String -> (String, Prompt)
 newPrompt str = (str, parsePrompt str)
 
@@ -141,6 +137,7 @@ replAction cmd = case cmd of
             Timeout -> lift $ SetTimeout . replTimeout <$> get
             Encoding -> lift $ SetEncoding . replEncoding <$> get
             Color -> lift $ SetColor . replColor <$> get
+            PromptVar -> lift $ SetPrompt . fst . replPromp <$> get
 
         outputStrLn $ printf "%s: %s" (toTitle $ show var) val
         updateLastCmd cmd
@@ -153,6 +150,7 @@ replAction cmd = case cmd of
             SetTimeout t -> lift $ modify (\s -> s {replTimeout=t})
             SetEncoding enc -> lift $ modify (\s -> s {replEncoding=enc})
             SetColor c -> lift $ modify (\s -> s {replColor=c})
+            SetPrompt p -> lift $ modify (\s -> s {replPromp=newPrompt p})
 
         updateLastCmd cmd
         replLoop

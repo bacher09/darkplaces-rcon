@@ -4,14 +4,17 @@ module DRcon.Prompt (
     parsePrompt,
     formatPrompt,
     renderPrompt,
-    getPromptVars
+    getPromptVars,
+    readPrompt
 ) where
 import qualified Data.Map.Strict as SM
 import Data.Tuple (swap)
 import Data.Time.LocalTime
+import Control.Monad.Error
 import System.Locale (defaultTimeLocale)
 import Data.Time.Format (formatTime)
 import DarkPlaces.Rcon
+import DRcon.Polyfills (readMaybe)
 
 
 data FormaterToken a = SimpleText a
@@ -150,3 +153,12 @@ getPromptVars name con = do
                        promptConnectMode=show $ fromEnum mode}
   where
     dateFormater t f = formatTime defaultTimeLocale f t
+
+
+readPrompt :: String -> Either String String
+readPrompt "" = return ""
+readPrompt arg@('"':_) = case readMaybe arg of
+    Just r -> return r
+    Nothing -> throwError "Error parsing prompt"
+
+readPrompt arg = readPrompt $ "\"" ++ arg ++ "\""
