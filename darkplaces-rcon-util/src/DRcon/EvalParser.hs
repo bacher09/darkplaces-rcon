@@ -186,7 +186,7 @@ parseBool val = case toLower val of
 
 parseSetVar :: EvalVar -> Text -> Either String VarValue
 parseSetVar Mode val = SetMode <$> parseRconMode (unpack val)
-parseSetVar TimeDiff val = case decimal val of
+parseSetVar TimeDiff val = case signed decimal val of
     Right (num, "") -> return $ SetTimeDiff num
     _               -> throwError "Value shoud be decimal"
 
