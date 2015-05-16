@@ -206,17 +206,28 @@ disambiguate cmd
     search_cmds = filter (isPrefixOf cmd) topLevelCommands
 
 
+firstMap :: (a -> a) -> [a] -> [a]
+firstMap _ [] = []
+firstMap fun (x:xs) = fun x : xs
+
+
 internalAutoComplete :: Text -> Text -> [Text]
-internalAutoComplete prev cmd = case prev_cmd of
-    ""     -> filter (isPrefixOf cmd) topLevelCommands
-    ":set" -> filter (isPrefixOf cmd) setVars
-    _      -> []
+internalAutoComplete prev cmd = case prev_cmds of
+    []       -> searchComp topLevelCommands
+    [":set"] -> searchComp setVars
+    [":set", "color"]    -> searchComp bools
+    [":set", "encoding"] -> searchComp encodings
+    _        -> []
   where
     sprev = T.reverse $ strip prev
-    prev_cmd = fromMaybe sprev $ disambiguate sprev
+    prev_cmds = firstMap firstCmd $ T.words sprev
+    firstCmd cmd = fromMaybe cmd $ disambiguate cmd
     vars :: [EvalVar]
     vars = enumFromTo minBound maxBound
     setVars = map (pack . show) vars
+    searchComp = filter (isPrefixOf cmd)
+    bools = map (pack . showBool) [True, False]
+    encodings = map (pack . showEncoding) $ enumFromTo minBound maxBound
 
 
 parseCommand :: String -> EvalCmd
