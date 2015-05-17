@@ -5,6 +5,9 @@ module DRcon.EvalParserSpec (
 import Test.Hspec
 import DRcon.EvalParser
 import DarkPlaces.Rcon
+import DarkPlaces.Text (DecodeType(..))
+import qualified Data.Text as T
+import Data.Char (isSpace)
 
 
 spec :: Spec
@@ -75,6 +78,41 @@ spec = do
             ":set mode 2" `cmdShouldBe` (Set $ SetMode ChallangeSecureRcon)
             ":set mode 1" `cmdShouldBe` (Set $ SetMode TimeSecureRcon)
             ":set mode 0" `cmdShouldBe` (Set $ SetMode NonSecureRcon)
+
+            ":set color no" `cmdShouldBe` (Set $ SetColor False)
+            ":set color 0" `cmdShouldBe` (Set $ SetColor False)
+            ":set color n" `cmdShouldBe` (Set $ SetColor False)
+            ":s color false" `cmdShouldBe` (Set $ SetColor False)
+            ":se color yes" `cmdShouldBe` (Set $ SetColor True)
+
+            ":set encoding nexuiz" `cmdShouldBe` (Set $ SetEncoding NexuizDecode)
+
+    describe "internalAutoComplete" $ do
+        it "check autocomplete of base commands" $ do
+            ":he" `shouldComplete` [":help"]
+            ":h" `shouldComplete` [":history", ":help"]
+            ":q" `shouldComplete` [":quit"]
+            ":qu" `shouldComplete` [":quit"]
+            ":lo" `shouldComplete` [":login"]
+            ":s" `shouldComplete` [":set"]
+
+        it "check autocomplete for :set options" $ do
+            ":s mo" `shouldComplete` ["mode"]
+            ":se mo" `shouldComplete` ["mode"]
+            ":set mo" `shouldComplete` ["mode"]
+            ":set co" `shouldComplete` ["color"]
+            ":set prompt" `shouldComplete` ["prompt"]
+
+        it "check autocomplete for :set option values" $ do
+            ":s color " `shouldComplete` ["yes", "no"]
+            ":s color y" `shouldComplete` ["yes"]
+            ":s encoding n" `shouldComplete` ["nexuiz"]
+
   where
     cmdShouldBe cmd_str cmd_res = parseCommand cmd_str `shouldBe` (Right cmd_res)
     cmdShouldErr cmd_str cmd_res = parseCommand cmd_str `shouldBe` (Left cmd_res)
+    shouldComplete text res = internalAutoComplete rprev cmd `shouldMatchList` res
+      where
+        rtext = T.reverse $ T.stripStart text
+        (rcmd, rprev) = T.break isSpace rtext
+        cmd = T.reverse rcmd

@@ -70,6 +70,8 @@ test-suite rcon-util-tests
                        bytestring >=0.10 && <0.11,
                        darkplaces-rcon-util,
                        darkplaces-rcon,
+                       darkplaces-text >= 0.2,
+                       text >=1.0,
                        hspec-core,
                        hspec
 
