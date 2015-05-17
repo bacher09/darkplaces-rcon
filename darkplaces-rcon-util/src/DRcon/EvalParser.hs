@@ -106,6 +106,9 @@ cmdInfo = [
     (":help, :?", "display list of commands"),
     (":history [n]", "show n (10 by default) last commands"),
     (":login", "promp for server password"),
+    (":set", "list available options"),
+    (":set <option>", "display option value"),
+    (":set <option> <args>", "change option value"),
     (":quit", "quit from drcon"),
     (":version", "print program version")]
 
