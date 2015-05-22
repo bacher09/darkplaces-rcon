@@ -9,6 +9,7 @@ module DarkPlaces.Rcon (
     close,
     isConnected,
     send,
+    recv,
     recvRcon,
     enableLog,
     disableLog,
@@ -90,20 +91,21 @@ createDPSocket host port opt = do
     N.connect sock (addrAddress host_addr)
     return sock
   where
-    getHostAddr = fmap head $ getAddrInfo (Just hints) (Just host) (Just port)
+    getHostAddr = head `fmap` getAddrInfo (Just hints) (Just host) (Just port)
     dg_hints = defaultHints {addrSocketType=Datagram, addrFlags=[AI_ADDRCONFIG]}
     hints = case opt of
         BothProtocols -> dg_hints
         OnlyIPv4 -> dg_hints {addrFamily=AF_INET}
         OnlyIPv6 -> dg_hints {addrFamily=AF_INET6}
 
-
+-- | Create `RconInfo` for givven host, port and password
 makeRcon :: HostName -> ServiceName -> B.ByteString -> RconInfo
 makeRcon host port passw = defaultRcon {rconHost=host,
                                         rconPort=port,
                                         rconPassword=passw}
 
 
+-- | Connect to darkplaces server
 connect :: RconInfo -> IO RconConnection
 connect rcon = do
     sock <- createDPSocket host port opt
@@ -117,14 +119,16 @@ connect rcon = do
     opt = rconProtoOpt rcon
 
 
+-- | Close connection
 close :: RconConnection -> IO ()
 close = N.close . connSocket
 
-
+-- | Return True if connection is active 
+-- and False if it closed
 isConnected :: RconConnection -> IO Bool
 isConnected = N.isConnected . connSocket
 
-
+-- | Sends rcon command via `RconConnection`
 send :: RconConnection -> B.ByteString -> IO ()
 send conn command = void $ NBL.send (connSocket conn) =<< rconPacket
   where
@@ -143,15 +147,22 @@ send conn command = void $ NBL.send (connSocket conn) =<< rconPacket
             TimeSecureRcon -> rconSecTime rcon
             ChallangeSecureRcon -> rconSecChallange rcon
 
-
-recvRcon :: RconConnection -> IO B.ByteString
-recvRcon conn = do
+-- | Receive packet and tries parse it as rcon packet.
+-- If succeeds returns Right ByteString with parsed response 
+-- else returns Left ByteString with raw packet
+recv :: RconConnection -> IO (Either B.ByteString B.ByteString)
+recv conn = do
     resp <- NB.recv sock maxPacketSize
-    case parseRcon resp of
-        (Just val) -> return val
-        Nothing -> recvRcon conn
+    return $ maybe (Left resp) Right $ parseRcon resp
   where
     sock = connSocket conn
+
+-- | Waits for rcon packet and return parsed response.
+-- if parsing fails it discard packet and waits another.
+recvRcon :: RconConnection -> IO B.ByteString
+recvRcon conn = do
+    e_resp <- recv conn
+    either (const $ recvRcon conn) return e_resp
 
 
 socketStr :: RconConnection -> IO B.ByteString
@@ -170,10 +181,12 @@ disableLogStr rc = BC.append log_begin <$> socketStr rc
     log_begin = BC.pack "sv_cmd removefromlist log_dest_udp "
 
 
+-- | Send rcon command for activating rcon log.
+-- This feature will not work over NAT
 enableLog :: RconConnection -> IO ()
 enableLog c = send c =<< enableLogStr c
 
-
+-- | Opposite action for `enableLog`
 disableLog :: RconConnection -> IO ()
 disableLog c = send c =<< disableLogStr c
 
