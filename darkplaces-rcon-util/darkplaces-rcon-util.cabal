@@ -2,6 +2,8 @@ name:                darkplaces-rcon-util
 version:             0.1
 synopsis:            Darplaces rcon utility
 homepage:            https://github.com/bacher09/darkplaces-rcon
+bug-reports:         https://github.com/bacher09/darkplaces-rcon/issues
+copyright:           (c) Slava Bacherikov 2015
 license:             GPL-2
 license-file:        LICENSE
 author:              Slava Bacherikov
@@ -9,6 +11,10 @@ maintainer:          slava@bacher09.org
 category:            Game
 build-type:          Simple
 cabal-version:       >=1.10
+description:
+
+    This is implementation of rcon shell for darkplaces engine.
+    For more info visit https://github.com/bacher09/darkplaces-rcon/blob/master/darkplaces-rcon-util/README.md
 
 flag LinuxStatic
     default:          False
