@@ -94,7 +94,7 @@ protoOptionsParser =
 commandParser :: Parser String
 commandParser = unwords <$> (some $ argument str (
     metavar "COMMAND"
-    <> help "Command that will be send to server"))
+    <> help "Command that will be sent to server"))
 
 
 argsParser :: Parser CommandArgs

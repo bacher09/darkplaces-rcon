@@ -45,13 +45,13 @@ follow [this guide][git build].
       -e,--encoding ENCODING   Server encoding. Major options is `utf8' and `nexuiz'
       --color COLOR_MODE       Possible values are: `auto', `always' and `never'
       SERVER                   Server to connect or config section
-      COMMAND                  Command that will be send to server
+      COMMAND                  Command that will be sent to server
 
 
 ## Configuration
 
 By default config file is located in `~/.drcon/drcon.ini`.
-Here's example config file
+Here's an example of config file
 
 ```ini
 [DEFAULT]
@@ -63,7 +63,7 @@ prompt="%{[0;32m%}%P %{[1;34m%}%N> %{[0m%}"
 timeout=0.6
 
 # mode can be 0, 1 or 2, 1 is default value.
-# it has same meaning as rcon_secure cvar in darkplaces
+# it has the same meaning as rcon_secure cvar in darkplaces
 # 0 means non secure rcon protocol
 # 1 means srcon protocol with timestramp
 # 2 means srcon protocol with challenge
@@ -102,7 +102,7 @@ read [this][haskeline config] and [this][haskeline bind].
 
 ## Prompt
 
-Prompt value is using syntax of Haskell's string literal, however you also
+Prompt value is uses syntax of Haskell's string literal, however you also
 can use special substitutions:
 
 | Sequence | Printed                 |
@@ -133,7 +133,7 @@ Here's one tip for those who are familiar with bash prompt settings:
 * `DRCON_HOME` &mdash; path to `.drcon` home dir.
 * `DRCON_HISTFILE` &mdash; path where history will be stored
 
-If `DRCON_HOME` is empty then `~/.drcon/` used as default value.
+If `DRCON_HOME` is empty then `~/.drcon/` will be used as default value.
 Some people prefer store configs in "~/.config/" folder, for this you can
 change this var like this
 
