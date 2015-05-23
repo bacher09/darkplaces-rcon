@@ -125,8 +125,8 @@ to use colored prompt.
 
 Here's one tip for those who are familiar with bash prompt settings:
 
-    * %{  &mdash; same as \[\e in bash
-    * %}  &mdash; same as \] in bash
+* %{  &mdash; same as \[\e in bash
+* %}  &mdash; same as \] in bash
 
 ## Environment variables
 
