@@ -5,24 +5,26 @@ license-file:        LICENSE
 author:              Slava Bacherikov
 maintainer:          slava@bacher09.org
 homepage:            https://github.com/bacher09/darkplaces-rcon
--- copyright:           
+bug-reports:         https://github.com/bacher09/darkplaces-rcon/issues
+copyright:           (c) Slava Bacherikov 2015
 category:            Game
 build-type:          Simple
--- extra-source-files:  
 cabal-version:       >=1.10
 synopsis:            Darkplaces rcon client library
--- description:         
+description:         
+
+  Rcon client library for Darkplaces game engine. It fully
+  implemnts both non-secure and "secure" rcon protocols.
+  Supports such games as Xonotic, Nexuiz.
 
 flag IntegrationTest
-    default:           False
-    description:       Enable Integration testing
+    default:          False
+    description:      Enable Integration testing
 
 library
   exposed-modules:     DarkPlaces.Rcon,
                        DarkPlaces.Rcon.Internal
   hs-source-dirs:      src
-  -- other-modules:       
-  -- other-extensions:    
   build-depends:       base >=4.5 && <5,
                        bytestring >=0.10 && <0.11,
                        cryptohash >= 0.11 && <0.12,
