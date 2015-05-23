@@ -2,20 +2,20 @@ This is meta repository for haskell packages that's related
 to darkplaces or quakes rcon protocol.
 Currently it contains these packages:
 
-* darkplaces-rcon -- library for darkplaces rcon protocol
-* darkplaces-rcon-util -- client rcon utility
+* darkplaces-rcon &mdash; library for darkplaces rcon protocol
+* darkplaces-rcon-util &mdash; client rcon utility
 
 
 ## Building from sources
 
-These instructions will assumes that you want to build all
+These instructions will assume that you want to build all
 repos hosted in this meta-repo.
 First you need to install these tools:
 
 * [GHC] >= 7.4 (recommended GHC >= 7.8)
-* cabal-install -- haskell package manager
-* [Alex] -- haskell lexer generator (same thing as C's lex)
-* C compliller -- required for compiling some dependent packages
+* cabal-install &mdash; haskell package manager
+* [Alex] &mdash; haskell lexer generator (same thing as C's lex)
+* C compliller &mdash; required for compiling some dependent packages
 
 Also you can choose easy way and install [Haskell Platform]
 that contains all these components (except C compiler).
