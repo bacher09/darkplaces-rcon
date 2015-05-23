@@ -118,7 +118,7 @@ argsParser = argsConstructor
     <*> optional (option (auto >>= eitherArgs . checkTimeout) (
         short 't'
         <> long "timeout"
-        <> help "How many time wait for reponse after send or previous response"
+        <> help "How many time wait for response after send or previous response"
         <> metavar "TIMEOUT"))
     <*> optional (option (str >>= eitherArgs . parseEncoding) (
         short 'e'
