@@ -3,7 +3,7 @@ to darkplaces or quakes rcon protocol.
 Currently it contains these packages:
 
 * darkplaces-rcon &mdash; library for darkplaces rcon protocol
-* darkplaces-rcon-util &mdash; client rcon utility
+* [darkplaces-rcon-util][drcon] &mdash; client rcon utility
 
 
 ## Building from sources
@@ -52,3 +52,4 @@ you can add it to yours PATH environment variable.
 [Haskell platform]: https://www.haskell.org/platform/
 [GHC]: https://www.haskell.org/ghc/
 [Alex]: https://www.haskell.org/alex/
+[drcon]: ./darkplaces-rcon-util/README.md
