@@ -20,6 +20,12 @@ flag LinuxStatic
     default:          False
     description:      Build static binary for linux
 
+flag old-locale
+  description: If false then depend on time >= 1.5.
+               .
+               If true then depend on time < 1.5 together with old-locale.
+  default: False
+
 library
   exposed-modules:     DRcon.CommandArgs,
                        DRcon.ConfigFile,
@@ -46,7 +52,7 @@ library
                        text >=1.0,
                        haskeline >= 0.7
 
-  if impl(time < 1.5)
+  if flag(old-locale)
     build-depends:     time < 1.5, old-locale
   else
     build-depends:     time >= 1.5
