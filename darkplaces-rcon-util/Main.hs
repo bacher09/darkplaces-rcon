@@ -165,6 +165,7 @@ replAction cmd = case cmd of
         replLoop
   where
     toTitle s = (\(f, e) -> map toUpper f ++ e) $ splitAt 1 s
+    rconEval :: BU.ByteString -> Repl IO ()
     rconEval command = do
         repl_state <- lift get
         let time = replTimeout repl_state

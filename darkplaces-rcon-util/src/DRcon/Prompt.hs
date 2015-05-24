@@ -13,11 +13,11 @@ import qualified Data.Map.Strict as SM
 import Data.Tuple (swap)
 import Data.Time.LocalTime
 import Control.Monad.Error
-import System.Locale (defaultTimeLocale)
 import Data.Time.Format (formatTime)
 import DarkPlaces.Rcon
 import DRcon.Polyfills (readMaybe)
 import DRcon.Version (versionStr, programName)
+import DRcon.Polyfills (defaultTimeLocale)
 
 
 data FormaterToken a = SimpleText a
