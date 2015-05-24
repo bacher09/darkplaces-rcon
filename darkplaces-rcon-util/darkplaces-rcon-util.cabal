@@ -34,8 +34,6 @@ library
   build-depends:       base >=4.5 && <5,
                        mtl >=2.0,
                        bytestring >=0.10 && <0.11,
-                       time >=1.4 && <1.6,
-                       old-locale,
                        optparse-applicative >= 0.10 && < 0.12,
                        containers >= 0.5,
                        utf8-string >=0.3,
@@ -47,6 +45,11 @@ library
                        darkplaces-rcon,
                        text >=1.0,
                        haskeline >= 0.7
+
+  if impl(time < 1.5)
+    build-depends:     time < 1.5, old-locale
+  else
+    build-depends:     time >= 1.5
 
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing
   hs-source-dirs:      src
