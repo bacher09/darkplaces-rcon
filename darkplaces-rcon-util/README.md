@@ -3,6 +3,8 @@
 This is implementation of rcon shell for darkplaces engine.
 View this [demo] if you want to get more info.
 
+![Simple demo][demogif]
+
 ## Features
 
 * Simple and easy CLI interface
@@ -143,6 +145,7 @@ Default value for `DRCON_HISTFILE` is `$DRCON_HOME/drcon_history`.
 
 
 [demo]: https://asciinema.org/a/20146
+[demogif]: ./demo.gif
 [git build]:  ../README.md#building-from-source
 [haskeline config]: http://trac.haskell.org/haskeline/wiki/UserPrefs
 [haskeline bind]: http://trac.haskell.org/haskeline/wiki/CustomKeyBindings
