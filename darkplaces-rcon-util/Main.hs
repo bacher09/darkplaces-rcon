@@ -9,7 +9,6 @@ import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
 import Options.Applicative
-import qualified Data.ByteString.Lazy as BL
 import System.Timeout
 import qualified Data.ByteString.UTF8 as BU
 import Control.Monad.Error
@@ -21,6 +20,7 @@ import qualified Data.Text as T
 import Data.Text.Encoding as TE
 import Text.Printf
 import Data.Char (toUpper)
+import Data.Conduit
 
 
 data ReplState = ReplState {
@@ -49,24 +49,26 @@ toMicroseconds :: Float -> Int
 toMicroseconds v = round $ v * 1e6
 
 
-printRecv :: RconConnection -> (Float, Bool, DecodeType) -> BinStreamState -> IO ()
-printRecv con parm@(time, color, enc) st = do
-    mdata <- timeout (toMicroseconds time) $ RCON.recvRcon con
-    let st_args = PrintStreamArgs {
-        withColor=color,
-        streamState=st,
-        decodeFun=toUTF enc}
-
-    case mdata of
-        (Just r) -> printStreamDPText st_args (BL.fromStrict r) >>= printRecv con parm
-        Nothing -> streamEnd color st
+printRecv :: RconConnection -> (Float, Bool, DecodeType) -> IO ()
+printRecv con (time, color, enc) = do
+    let stream = rconRecv =$= parseDPText =$= toUTF enc
+    if color
+        then stream $$ outputColorsLn
+        else stream $$ outputNoColorsLn
+  where
+    rconRecv :: Source IO BU.ByteString
+    rconRecv = do
+        mdata <- liftIO $ timeout (toMicroseconds time) $ RCON.recvRcon con
+        case mdata of
+            (Just r) -> yield r >> rconRecv
+            Nothing -> return ()
 
 
 rconExec :: DRconArgs -> String -> Bool -> IO ()
 rconExec dargs command color = do
     con <- RCON.connect (connectInfo dargs)
     RCON.send con (BU.fromString command)
-    printRecv con (time, color, enc) defaultStreamState
+    printRecv con (time, color, enc)
     RCON.close con
   where
     time = drconTimeout dargs
@@ -174,7 +176,7 @@ replAction cmd = case cmd of
             con = replConnection repl_state
 
         liftIO $ RCON.send con command
-        liftIO $ printRecv con (time, color, enc) defaultStreamState
+        liftIO $ printRecv con (time, color, enc)
 
     noLastCmd = "there is no last command to perform\n" ++
         "use :? for help."

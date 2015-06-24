@@ -47,7 +47,7 @@ library
                        filepath,
                        directory,
                        HostAndPort,
-                       darkplaces-text >= 0.2,
+                       darkplaces-text >= 0.3,
                        darkplaces-rcon,
                        text >=1.0,
                        haskeline >= 0.7
@@ -71,11 +71,12 @@ executable drcon
                        bytestring >=0.10 && <0.11,
                        optparse-applicative >= 0.10 && < 0.12,
                        utf8-string >=0.3,
-                       darkplaces-text >= 0.2,
+                       darkplaces-text >= 0.3,
                        darkplaces-rcon,
                        darkplaces-rcon-util,
                        text >=1.0,
-                       haskeline >= 0.7
+                       haskeline >= 0.7,
+                       conduit
 
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing
   default-language:    Haskell2010
@@ -96,7 +97,7 @@ test-suite rcon-util-tests
                        bytestring >=0.10 && <0.11,
                        darkplaces-rcon-util,
                        darkplaces-rcon,
-                       darkplaces-text >= 0.2,
+                       darkplaces-text >= 0.3,
                        text >=1.0,
                        hspec-core,
                        hspec
