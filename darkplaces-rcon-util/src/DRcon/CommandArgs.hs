@@ -11,6 +11,7 @@ module DRcon.CommandArgs (
     maybeArgsParser
 ) where
 import Options.Applicative
+import Data.Semigroup ((<>))
 import DarkPlaces.Text (DecodeType(..))
 import DarkPlaces.Rcon hiding (connect, send)
 import DRcon.Polyfills (readMaybe)

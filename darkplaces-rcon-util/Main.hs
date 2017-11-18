@@ -9,6 +9,7 @@ import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
 import Options.Applicative
+import Data.Semigroup ((<>))
 import System.Timeout
 import qualified Data.ByteString.UTF8 as BU
 import Control.Monad.Error
