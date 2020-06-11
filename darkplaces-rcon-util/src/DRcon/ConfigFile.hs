@@ -12,6 +12,7 @@ import DarkPlaces.Text (DecodeType(..))
 import Data.ConfigFile
 import System.IO.Error (isDoesNotExistError)
 import Control.Exception (tryJust)
+import Control.Monad.Catch (handle)
 import qualified Data.ByteString.UTF8 as BU
 import Network.HostAndPort (defaultHostAndPort)
 import DarkPlaces.Rcon hiding (connect, send, getPassword)

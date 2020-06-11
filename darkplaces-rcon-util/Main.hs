@@ -22,6 +22,7 @@ import Data.Text.Encoding as TE
 import Text.Printf
 import Data.Char (toUpper)
 import Data.Conduit
+import Control.Monad.Catch (handle)
 
 
 data ReplState = ReplState {

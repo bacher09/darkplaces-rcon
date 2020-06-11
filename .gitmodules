@@ -1,0 +1,3 @@
+[submodule "darkplaces-text"]
+	path = darkplaces-text
+	url = git@github.com:bacher09/darkplaces-text.git
