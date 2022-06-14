@@ -1,5 +1,5 @@
 name:                darkplaces-rcon-util
-version:             0.2
+version:             0.2.1
 synopsis:            Darplaces rcon utility
 homepage:            https://github.com/bacher09/darkplaces-rcon
 bug-reports:         https://github.com/bacher09/darkplaces-rcon/issues
@@ -37,11 +37,11 @@ library
   other-modules:       DRcon.Polyfills,
                        Paths_darkplaces_rcon_util
 
-  build-depends:       base >=4.5 && <5,
+  build-depends:       base >=4.7 && <5,
                        mtl >=2.0,
-                       bytestring >=0.10 && <0.11,
-                       optparse-applicative >= 0.10 && <= 0.15.1.0,
-                       network >= 2.6 && < 3.0,
+                       bytestring >=0.11 && <0.12,
+                       optparse-applicative >= 0.15 && < 0.18,
+                       network >= 3.1 && < 4.0,
                        containers >= 0.5,
                        utf8-string >=0.3,
                        ConfigFile >=1.1,
@@ -68,11 +68,11 @@ library
 
 executable drcon
   main-is:             Main.hs
-  build-depends:       base >=4.5 && <5,
+  build-depends:       base >=4.7 && <5,
                        mtl >=2.0,
-                       bytestring >=0.10 && <0.11,
-                       network >= 2.6 && < 3.0,
-                       optparse-applicative >= 0.10 && <= 0.15.1.0,
+                       bytestring >=0.11 && <0.12,
+                       network >= 3.1 && < 4.0,
+                       optparse-applicative >= 0.15 && < 0.18,
                        utf8-string >=0.3,
                        darkplaces-text >= 0.3,
                        darkplaces-rcon,
@@ -98,7 +98,7 @@ test-suite rcon-util-tests
   other-modules:       DRcon.EvalParserSpec
 
   build-depends:       base >=4.7 && <5,
-                       bytestring >=0.10 && <0.11,
+                       bytestring >=0.11 && <0.12,
                        darkplaces-rcon-util,
                        darkplaces-rcon,
                        darkplaces-text >= 0.3,
@@ -106,6 +106,7 @@ test-suite rcon-util-tests
                        hspec-core,
                        hspec
 
+  build-tool-depends:  hspec-discover:hspec-discover -any
   ghc-options:         -O2 -funbox-strict-fields -Wall -fno-warn-name-shadowing
 
 

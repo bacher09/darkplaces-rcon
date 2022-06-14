@@ -7,3 +7,4 @@ cabal.sandbox.config
 *.prof
 test.html
 .hpc/
+dist-newstyle

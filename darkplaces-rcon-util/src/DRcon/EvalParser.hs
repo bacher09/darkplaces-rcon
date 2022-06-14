@@ -15,16 +15,14 @@ module DRcon.EvalParser (
 import Prelude hiding (break, concat)
 import Data.Char (isSpace)
 import Data.Maybe
-import Data.Text hiding (filter, map)
+import Data.Text hiding (filter, map, elem)
 import qualified Data.Text as T
 import Data.Text.Read
-import Control.Monad.Error
-import Control.Applicative ((<$>))
+import Control.Monad.Except
 import DRcon.CommandArgs (parseRconMode, parseEncoding, showEncoding)
 import DRcon.Prompt (readPrompt)
 import DarkPlaces.Rcon (RconMode)
 import DarkPlaces.Text (DecodeType(..))
-import Data.Monoid
 import Text.Printf
 
 

@@ -7,7 +7,6 @@ module DarkPlaces.Rcon (
     makeRcon,
     connect,
     close,
-    isConnected,
     send,
     recv,
     recvRcon,
@@ -25,14 +24,13 @@ module DarkPlaces.Rcon (
 import DarkPlaces.Rcon.Internal
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
-import Network.Socket hiding (connect, close, isConnected, send, recv)
+import Network.Socket hiding (connect, close)
 import qualified Network.Socket as N
 import qualified Network.Socket.ByteString as NB
 import qualified Network.Socket.ByteString.Lazy as NBL
 import Data.IORef
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Control.Monad
-import Control.Applicative
 
 
 data RconMode = NonSecureRcon
@@ -123,14 +121,9 @@ connect rcon = do
 close :: RconConnection -> IO ()
 close = N.close . connSocket
 
--- | Return True if connection is active 
--- and False if it closed
-isConnected :: RconConnection -> IO Bool
-isConnected = N.isConnected . connSocket
-
 -- | Sends rcon command via `RconConnection`
 send :: RconConnection -> B.ByteString -> IO ()
-send conn command = void $ NBL.send (connSocket conn) =<< rconPacket
+send conn command = void $ NBL.sendAll (connSocket conn) =<< rconPacket
   where
     rconNonsec rcon = rconNonSecurePacket (rconPassword rcon) command
     rconSecTime rcon = do

@@ -1,0 +1,6 @@
+packages:
+    ./darkplaces-text
+    ./darkplaces-rcon
+    ./darkplaces-rcon-util
+
+tests: true

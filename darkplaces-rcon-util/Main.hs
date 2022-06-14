@@ -9,10 +9,9 @@ import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
 import Options.Applicative
-import Data.Semigroup ((<>))
 import System.Timeout
 import qualified Data.ByteString.UTF8 as BU
-import Control.Monad.Error
+import Control.Monad.Except
 import System.Console.Haskeline
 import System.Console.Haskeline.History (historyLines)
 import Control.Monad.State.Strict
@@ -53,12 +52,12 @@ toMicroseconds v = round $ v * 1e6
 
 printRecv :: RconConnection -> (Float, Bool, DecodeType) -> IO ()
 printRecv con (time, color, enc) = do
-    let stream = rconRecv =$= parseDPText =$= toUTF enc
+    let stream = rconRecv .| parseDPText .| toUTF enc
     if color
-        then stream $$ outputColorsLn
-        else stream $$ outputNoColorsLn
+        then runConduit $ stream .| outputColorsLn
+        else runConduit $ stream .| outputNoColorsLn
   where
-    rconRecv :: Source IO BU.ByteString
+    rconRecv :: ConduitT () BU.ByteString IO ()
     rconRecv = do
         mdata <- liftIO $ timeout (toMicroseconds time) $ RCON.recvRcon con
         case mdata of
@@ -225,7 +224,7 @@ main = handleErrors . processArgs =<< execParser opts
     opts = info (helper <*> maybeArgsParser)
         (fullDesc <> progDesc "Darkplaces rcon client utility")
     handleErrors me = do
-        r <- runErrorT me
+        r <- runExceptT me
         case r of
             (Right ()) -> return ()
             (Left e) -> putStrLn e

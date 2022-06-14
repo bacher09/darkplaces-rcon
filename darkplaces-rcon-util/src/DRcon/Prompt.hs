@@ -12,7 +12,7 @@ module DRcon.Prompt (
 import qualified Data.Map.Strict as SM
 import Data.Tuple (swap)
 import Data.Time.LocalTime
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Time.Format (formatTime)
 import DarkPlaces.Rcon
 import DRcon.Polyfills (readMaybe)

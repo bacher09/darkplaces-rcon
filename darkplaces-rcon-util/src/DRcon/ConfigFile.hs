@@ -17,7 +17,7 @@ import qualified Data.ByteString.UTF8 as BU
 import Network.HostAndPort (defaultHostAndPort)
 import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import System.Console.Haskeline
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Applicative
 import Data.Maybe
 import System.Exit
@@ -32,7 +32,7 @@ data DRconArgs = DRconArgs {
 } deriving (Show, Read, Eq)
 
 
-type UtilError = ErrorT String IO
+type UtilError = ExceptT String IO
 
 
 getMaybe :: (Get_C a, MonadError CPError m) => ConfigParser -> SectionSpec -> OptionSpec -> m (Maybe a)
