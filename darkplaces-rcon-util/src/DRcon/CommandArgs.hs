@@ -19,13 +19,15 @@ import Data.Maybe (fromMaybe)
 
 
 data BaseArgs = BaseArgs {
-    confServerString :: String,
-    confPassword     :: Maybe String,
-    confMode         :: Maybe RconMode,
-    confTimeDiff     :: Maybe Int,
-    confTimeout      :: Maybe Float,
-    confEncoding     :: Maybe DecodeType,
-    confProtoOptions :: Maybe ProtocolOptions
+    confServerString     :: String,
+    confPassword         :: Maybe String,
+    confMode             :: Maybe RconMode,
+    confTimeDiff         :: Maybe Int,
+    confTimeout          :: Maybe Float,
+    confEncoding         :: Maybe DecodeType,
+    confProtoOptions     :: Maybe ProtocolOptions,
+    confChallengeRetries :: Maybe Int,
+    confChallengeTimeout :: Maybe Float
 } deriving(Show, Read, Eq)
 
 
@@ -48,7 +50,7 @@ parseRconMode ms = case readMaybe ms of
     _ -> Left "value should be 0, 1 or 2"
 
 
-checkTimeout :: Float -> Either String Float
+checkTimeout :: (Num n, Ord n) => n -> Either String n
 checkTimeout t
     | t > 0 = Right t
     | otherwise = Left "value should be bigger then 0"
@@ -130,19 +132,29 @@ argsParser = argsConstructor
         <> value Nothing
         <> help "Possible values are: `auto', `always' and `never'"
         <> metavar "COLOR_MODE")
+    <*> optional (option (auto >>= eitherArgs . checkTimeout) (
+        long "challenge-retries"
+        <> help "How many attempts to make to retrive challenge"
+        <> metavar "CHALLENGE_RETRIES"))
+    <*> optional (option (auto >>= eitherArgs . checkTimeout) (
+        long "challenge-timeout"
+        <> help "Timeout for challenge requests"
+        <> metavar "CHALLENGE_TIMEOUT"))
     <*> argument str (
         help "Server to connect or config section"
         <> metavar "SERVER")
     <*> optional commandParser
   where
-    argsConstructor protoOpt password mode tdiff tout enc color server cmd =
+    argsConstructor protoOpt password mode tdiff tout enc color cret ctout server cmd =
         let baseArgs = BaseArgs {confServerString=server,
                                  confPassword=password,
                                  confMode=mode,
                                  confTimeDiff=tdiff,
                                  confTimeout=tout,
                                  confEncoding=enc,
-                                 confProtoOptions=protoOpt}
+                                 confProtoOptions=protoOpt,
+                                 confChallengeRetries=cret,
+                                 confChallengeTimeout=ctout}
         in CommandArgs {cliServerName=server,
                         cliBaseArgs=baseArgs,
                         cliColor=color,

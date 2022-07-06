@@ -39,6 +39,8 @@ data EvalVar = Mode
              | Encoding
              | Color
              | PromptVar
+             | ChallengeRetries
+             | ChallengeTimeout
     deriving(Eq, Ord, Bounded, Enum)
 
 
@@ -48,6 +50,8 @@ data VarValue = SetMode RconMode
               | SetEncoding DecodeType
               | SetColor Bool
               | SetPrompt String
+              | SetChallengeRetries Int
+              | SetChallengeTimeout Float
     deriving(Eq)
 
 
@@ -91,6 +95,8 @@ instance Show EvalVar where
     show Encoding = "encoding"
     show Color = "color"
     show PromptVar = "prompt"
+    show ChallengeRetries = "challenge_retries"
+    show ChallengeTimeout = "challenge_timeout"
 
 
 instance Show VarValue where
@@ -138,13 +144,15 @@ helpVars = " Available vars:\n\n" <> varsList
 
 parseEvalVar :: Text -> Maybe EvalVar
 parseEvalVar var = case var of
-    "mode"     -> Just Mode
-    "timediff" -> Just TimeDiff
-    "timeout"  -> Just Timeout
-    "encoding" -> Just Encoding
-    "color"    -> Just Color
-    "prompt"   -> Just PromptVar
-    _          -> Nothing
+    "mode"              -> Just Mode
+    "timediff"          -> Just TimeDiff
+    "timeout"           -> Just Timeout
+    "encoding"          -> Just Encoding
+    "color"             -> Just Color
+    "prompt"            -> Just PromptVar
+    "challenge_retries" -> Just ChallengeRetries
+    "challenge_timeout" -> Just ChallengeTimeout
+    _                   -> Nothing
 
 
 showBool :: Bool -> String
@@ -159,6 +167,8 @@ showVar (SetTimeout tm) = show tm
 showVar (SetEncoding enc) = showEncoding enc
 showVar (SetColor c) = showBool c
 showVar (SetPrompt p) = show p
+showVar (SetChallengeRetries p) = show p
+showVar (SetChallengeTimeout p) = show p
 
 
 getVarName :: VarValue -> EvalVar
@@ -168,6 +178,8 @@ getVarName (SetTimeout _) = Timeout
 getVarName (SetEncoding _) = Encoding
 getVarName (SetColor _) = Color
 getVarName (SetPrompt _) = PromptVar
+getVarName (SetChallengeRetries _) = PromptVar
+getVarName (SetChallengeTimeout _) = PromptVar
 
 
 parseBool :: Text -> Either String Bool
@@ -197,6 +209,12 @@ parseSetVar Timeout val = case rational val of
 parseSetVar Encoding val = SetEncoding <$> parseEncoding (unpack val)
 parseSetVar Color val = SetColor <$> parseBool val
 parseSetVar PromptVar val = SetPrompt <$> readPrompt (unpack val)
+parseSetVar ChallengeRetries val = case decimal val of
+    Right (num, "") -> return $ SetChallengeRetries num
+    _               -> throwError "Value should be positive integer"
+parseSetVar ChallengeTimeout val = case rational val of
+    Right (num, "") -> return $ SetChallengeTimeout num
+    _               -> throwError "Value should be float"
 
 
 disambiguate :: Text -> Maybe Text

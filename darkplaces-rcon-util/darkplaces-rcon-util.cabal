@@ -96,7 +96,8 @@ test-suite rcon-util-tests
   hs-source-dirs:      tests
   main-is:             Spec.hs
 
-  other-modules:       DRcon.EvalParserSpec
+  other-modules:       DRcon.EvalParserSpec,
+                       DRcon.ConfigFileSpec
 
   build-depends:       base >=4.7 && <5,
                        bytestring >=0.11 && <0.12,
@@ -104,6 +105,7 @@ test-suite rcon-util-tests
                        darkplaces-rcon,
                        darkplaces-text >= 0.3,
                        text >=1.0,
+                       ConfigFile >=1.1,
                        hspec-core,
                        hspec
 

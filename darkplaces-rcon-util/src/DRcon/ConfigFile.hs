@@ -2,7 +2,11 @@
 module DRcon.ConfigFile (
     DRconArgs(..),
     UtilError,
-    rconConfigure
+    rconConfigure,
+    argsFromConfig,
+    configParser,
+    toMicroseconds,
+    fromMicroseconds
 ) where
 import DRcon.CommandArgs
 import DRcon.Paths
@@ -39,6 +43,16 @@ getMaybe :: (Get_C a, MonadError CPError m) => ConfigParser -> SectionSpec -> Op
 getMaybe c sec opt = (Just <$> get c sec opt) `catchError` const (return Nothing)
 
 
+configParser :: ConfigParser
+configParser = emptyCP
+
+toMicroseconds :: Float -> Int
+toMicroseconds v = round $ v * 1e6
+
+fromMicroseconds :: Int -> Float
+fromMicroseconds v = fromIntegral v / 1e6
+
+
 readConfig :: String -> UtilError (Maybe ConfigParser)
 readConfig cpath = do
     r <- liftIO $ tryJust (guard . isDoesNotExistError) doRead
@@ -49,7 +63,7 @@ readConfig cpath = do
         Nothing -> return Nothing
 
   where
-    doRead = liftIO $ readfile emptyCP cpath
+    doRead = liftIO $ readfile configParser cpath
 
 
 parseAddrFamily :: String -> Either String ProtocolOptions
@@ -90,12 +104,7 @@ argsFromConfig c name = do
         Nothing -> return Nothing
 
     diff <- getMaybe c name "diff"
-    raw_timeout <- getMaybe c name "timeout"
-    timeout <- case checkTimeout <$> raw_timeout of
-        (Just (Right t)) -> return $ Just t
-        (Just (Left e)) -> throwError (ParseError $ "Bad timeout:" ++ e, "gettimeout")
-        Nothing -> return Nothing
-
+    timeout <- getMaybe c name "timeout" >>= timeoutParser "Bad timeout:" "gettimeout"
     raw_enc <- getMaybe c name "encoding"
     enc <- case parseEncoding <$> raw_enc of
         (Just (Right t)) -> return $ Just t
@@ -108,6 +117,9 @@ argsFromConfig c name = do
         (Just (Left e)) -> throwError (ParseError $ "Bad addrfamily:" ++ e, "getaddrfamily")
         Nothing -> return Nothing
 
+    cret <- getMaybe c name "challengeRetries" >>= timeoutParser "Bad challenge retries count:" "getchallengeRetries"
+    ctimeout <- getMaybe c name "challengeTimeout" >>= timeoutParser "Bad challenge timeout:" "getchallengeTimeout"
+
     return $ BaseArgs {
         confServerString=server,
         confPassword=password,
@@ -115,7 +127,14 @@ argsFromConfig c name = do
         confTimeDiff=diff,
         confTimeout=timeout,
         confEncoding=enc,
-        confProtoOptions=proto_opts}
+        confProtoOptions=proto_opts,
+        confChallengeRetries=cret,
+        confChallengeTimeout=ctimeout}
+  where
+    timeoutParser errorStr errorCode value = case checkTimeout <$> value of
+        (Just (Right t)) -> return $ Just t
+        (Just (Left e)) -> throwError (ParseError $ errorStr ++ e, errorCode)
+        Nothing -> return Nothing
 
 
 getPasswordOrExit :: IO String
@@ -142,7 +161,9 @@ getDRconArgs name args prompt = do
     let base_rcon = makeRcon host port (BU.fromString password)
     let rcon = base_rcon {rconMode=mode,
                           rconTimeDiff=time_diff,
-                          rconProtoOpt=proto_opt}
+                          rconProtoOpt=proto_opt,
+                          rconChallengeRetries=challenge_retries,
+                          rconChallengeTimeout=challenge_timeout}
     return $ DRconArgs {connectInfo=rcon,
                         drconTimeout=time_out,
                         drconEncoding=enc,
@@ -155,6 +176,8 @@ getDRconArgs name args prompt = do
     time_out = fromMaybe 1.5 $ confTimeout args
     enc = fromMaybe Utf8Lenient $ confEncoding args
     proto_opt = fromMaybe BothProtocols $ confProtoOptions args
+    challenge_retries = fromMaybe 3 $ confChallengeRetries args
+    challenge_timeout = toMicroseconds $ fromMaybe 1.5 $ confChallengeTimeout args
 
 
 mergeArgs :: BaseArgs -> BaseArgs -> BaseArgs
@@ -165,7 +188,9 @@ mergeArgs f s = BaseArgs {
     confTimeDiff = merge confTimeDiff,
     confTimeout = merge confTimeout,
     confEncoding = merge confEncoding,
-    confProtoOptions = merge confProtoOptions}
+    confProtoOptions = merge confProtoOptions,
+    confChallengeRetries = merge confChallengeRetries,
+    confChallengeTimeout = merge confChallengeTimeout}
   where
     merge fun = fun f <|> fun s
 

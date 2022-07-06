@@ -87,6 +87,9 @@ spec = do
 
             ":set encoding nexuiz" `cmdShouldBe` Set (SetEncoding NexuizDecode)
 
+            ":set challenge_timeout 1.0" `cmdShouldBe` Set (SetChallengeTimeout 1.0)
+            ":set challenge_retries 2" `cmdShouldBe` Set (SetChallengeRetries 2)
+
     describe "internalAutoComplete" $ do
         it "check autocomplete of base commands" $ do
             ":he" `shouldComplete` [":help"]
@@ -107,6 +110,8 @@ spec = do
             ":s color " `shouldComplete` ["yes", "no"]
             ":s color y" `shouldComplete` ["yes"]
             ":s encoding n" `shouldComplete` ["nexuiz"]
+            ":s challenge_t" `shouldComplete` ["challenge_timeout"]
+            ":s challenge_r" `shouldComplete` ["challenge_retries"]
 
   where
     cmdShouldBe cmd_str cmd_res = parseCommand cmd_str `shouldBe` Right cmd_res

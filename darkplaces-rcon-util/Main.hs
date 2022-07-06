@@ -77,10 +77,6 @@ newPrompt :: String -> (String, Prompt)
 newPrompt str = (str, parsePrompt str)
 
 
-toMicroseconds :: Float -> Int
-toMicroseconds v = round $ v * 1e6
-
-
 rconTimeoutConduit :: RconConnection -> Int -> ConduitT () BU.ByteString IO ()
 rconTimeoutConduit con t = do
     mdata <- liftIO $ timeout t $ RCON.recv con
@@ -174,6 +170,8 @@ replAction cmd = case cmd of
             Encoding -> lift $ SetEncoding . replEncoding <$> get
             Color -> lift $ SetColor . replColor <$> get
             PromptVar -> lift $ SetPrompt . fst . replPromp <$> get
+            ChallengeRetries -> liftIO $ SetChallengeRetries <$> getChallengeRetries con
+            ChallengeTimeout -> liftIO $ SetChallengeTimeout . fromMicroseconds <$> getChallengeTimeout con
 
         outputStrLn $ printf "%s: %s" (toTitle $ show var) val
         updateLastCmd cmd
@@ -187,6 +185,8 @@ replAction cmd = case cmd of
             SetEncoding enc -> lift $ atomicModify (\s -> s {replEncoding=enc})
             SetColor c -> lift $ atomicModify (\s -> s {replColor=c})
             SetPrompt p -> lift $ atomicModify (\s -> s {replPromp=newPrompt p})
+            SetChallengeRetries r -> liftIO $ setChallengeRetries con r
+            SetChallengeTimeout t -> liftIO $ setChallengeTimeout con $ toMicroseconds t
 
         updateLastCmd cmd
         replLoop
