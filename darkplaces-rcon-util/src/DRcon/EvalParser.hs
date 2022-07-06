@@ -234,7 +234,7 @@ internalAutoComplete prev cmd = case prev_cmds of
 parseCommand :: String -> EvalCmd
 parseCommand command
     | tcommand == empty = return Empty
-    | isPrefixOf ":" tcommand = parseInternalCommand dcmd (strip args)
+    | ":" `isPrefixOf` tcommand = parseInternalCommand dcmd (strip args)
     | otherwise = return $ RconCommand tcommand
   where
     tcommand = strip $ pack command

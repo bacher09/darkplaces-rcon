@@ -36,7 +36,7 @@ type UtilError = ExceptT String IO
 
 
 getMaybe :: (Get_C a, MonadError CPError m) => ConfigParser -> SectionSpec -> OptionSpec -> m (Maybe a)
-getMaybe c sec opt = (Just `liftM` get c sec opt) `catchError` const (return Nothing)
+getMaybe c sec opt = (Just <$> get c sec opt) `catchError` const (return Nothing)
 
 
 readConfig :: String -> UtilError (Maybe ConfigParser)
@@ -79,7 +79,7 @@ getPrompt mconf = do
 argsFromConfig :: (MonadError CPError m) => ConfigParser -> String -> m BaseArgs
 argsFromConfig c name = do
     server <- if c `has_section` name
-        then fromMaybe name `liftM` getMaybe c name "server"
+        then fromMaybe name <$> getMaybe c name "server"
         else return name
 
     password <- getMaybe c name "password"
@@ -136,7 +136,7 @@ getDRconArgs name args prompt = do
         (Just v) -> return v
 
     password <- case confPassword args of
-        Nothing -> liftIO $ getPasswordOrExit
+        Nothing -> liftIO getPasswordOrExit
         (Just v) -> return v
 
     let base_rcon = makeRcon host port (BU.fromString password)

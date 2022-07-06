@@ -88,11 +88,11 @@ protoOptionsParser :: Parser (Maybe ProtocolOptions)
 protoOptionsParser =
     flag' (Just OnlyIPv4) (short '4' <> help "Forces to use IPv4 addresses only")
     <|> flag' (Just OnlyIPv6) (short '6' <> help "Forces to use IPv6 addresses only")
-    <|> (pure Nothing)
+    <|> pure Nothing
 
 
 commandParser :: Parser String
-commandParser = unwords <$> (some $ argument str (
+commandParser = unwords <$> some (argument str (
     metavar "COMMAND"
     <> help "Command that will be sent to server"))
 

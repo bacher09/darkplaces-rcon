@@ -1,0 +1,4 @@
+- ignore: {name: "Replace case with maybe"}
+- ignore: {name: "Use $>"}
+- ignore: {name: "Use tuple-section"}
+- ignore: {name: "Use writeList2Chan"}

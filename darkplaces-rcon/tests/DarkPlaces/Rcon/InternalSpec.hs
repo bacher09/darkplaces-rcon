@@ -20,12 +20,12 @@ spec = do
 
             rconSecureTimePacket (100.0 :: Float) "passw" "status" `shouldBe` res
 
-    describe "rconSecureChallangePacket" $ do
+    describe "rconSecureChallengePacket" $ do
         it "when challange is 11111111111 password is passw and command status" $ do
             let res = "\xff\xff\xff\xffsrcon HMAC-MD4 CHALLENGE \
                       \D\x89\xfd\x15\xccZ\xea\xeb\x0e\xbfl\xd6\&C\
                       \\x05T\x12 11111111111 status"
-            rconSecureChallangePacket "11111111111" "passw" "status" `shouldBe` res
+            rconSecureChallengePacket "11111111111" "passw" "status" `shouldBe` res
 
     describe "parseChallenge" $ do
         it "valid packet return challange" $ do

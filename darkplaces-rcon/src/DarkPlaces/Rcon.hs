@@ -9,7 +9,6 @@ module DarkPlaces.Rcon (
     close,
     send,
     recv,
-    recvRcon,
     enableLog,
     disableLog,
     setPassword,
@@ -19,7 +18,11 @@ module DarkPlaces.Rcon (
     getMode,
     getTimeDiff,
     getHost,
-    getPort
+    getPort,
+    getChallengeTimeout,
+    getChallengeRetries,
+    setChallengeTimeout,
+    setChallengeRetries
 ) where
 import DarkPlaces.Rcon.Internal
 import qualified Data.ByteString as B
@@ -31,11 +34,15 @@ import qualified Network.Socket.ByteString.Lazy as NBL
 import Data.IORef
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Control.Monad
+import Control.Concurrent
+import Data.Function
+import System.Timeout
+import Control.Exception
 
 
 data RconMode = NonSecureRcon
               | TimeSecureRcon
-              | ChallangeSecureRcon
+              | ChallengeSecureRcon
     deriving(Show, Read, Eq, Ord, Enum, Bounded)
 
 
@@ -46,19 +53,23 @@ data ProtocolOptions = OnlyIPv4
 
 
 data RconInfo = RconInfo {
-    rconHost     :: HostName,
-    rconPort     :: ServiceName,
-    rconMode     :: RconMode,
-    rconPassword :: B.ByteString,
-    rconTimeDiff :: Int,
-    rconProtoOpt :: ProtocolOptions
+    rconHost             :: HostName,
+    rconPort             :: ServiceName,
+    rconMode             :: RconMode,
+    rconPassword         :: B.ByteString,
+    rconTimeDiff         :: Int,
+    rconProtoOpt         :: ProtocolOptions,
+    rconChallengeRetries :: Int,
+    rconChallengeTimeout :: Int
 } deriving (Show, Read, Eq)
 
 
 data RconConnection = RconConnection {
-    connSocket :: Socket,
-    connInfo :: IORef RconInfo,
-    getChallange :: IO B.ByteString
+    connSocket     :: Socket,
+    connInfo       :: IORef RconInfo,
+    connChallengeM :: MVar B.ByteString,
+    connReceivedC  :: Chan B.ByteString,
+    connReceiveTid :: ThreadId
 }
 
 
@@ -68,26 +79,17 @@ defaultRcon = RconInfo {rconHost="localhost",
                         rconMode=TimeSecureRcon,
                         rconPassword=B.empty,
                         rconTimeDiff=0,
-                        rconProtoOpt=BothProtocols}
+                        rconProtoOpt=BothProtocols,
+                        rconChallengeRetries=3,
+                        rconChallengeTimeout=500000}
 
 
-sockGetChallenge :: Socket -> IO B.ByteString
-sockGetChallenge s = NB.send s challangePacket >> recvChallange
-  where
-    getResponse = NB.recv s maxPacketSize
-    recvChallange = do
-        resp <- getResponse
-        case parseChallenge resp of
-            Just challenge -> return challenge
-            Nothing -> recvChallange
-
-
-createDPSocket :: HostName -> ServiceName -> ProtocolOptions -> IO Socket
+createDPSocket :: HostName -> ServiceName -> ProtocolOptions -> IO (Socket, SockAddr)
 createDPSocket host port opt = do
     host_addr <- getHostAddr
     sock <- socket (addrFamily host_addr) Datagram (addrProtocol host_addr)
     N.connect sock (addrAddress host_addr)
-    return sock
+    return (sock, addrAddress host_addr)
   where
     getHostAddr = head `fmap` getAddrInfo (Just hints) (Just host) (Just port)
     dg_hints = defaultHints {addrSocketType=Datagram, addrFlags=[AI_ADDRCONFIG]}
@@ -106,56 +108,82 @@ makeRcon host port passw = defaultRcon {rconHost=host,
 -- | Connect to darkplaces server
 connect :: RconInfo -> IO RconConnection
 connect rcon = do
-    sock <- createDPSocket host port opt
+    (sock, addr) <- createDPSocket host port opt
     info_ref <- newIORef rcon
-    return RconConnection {connSocket=sock,
-                           connInfo=info_ref,
-                           getChallange=sockGetChallenge sock}
+    challengeM <- newEmptyMVar
+    receivedC <- newChan
+    tid <- forkIO $ fix $ \loop -> processConnection sock addr challengeM receivedC >> loop
+    return RconConnection {
+        connSocket=sock,
+        connInfo=info_ref,
+        connChallengeM=challengeM,
+        connReceivedC=receivedC,
+        connReceiveTid=tid
+    }
   where
     host = rconHost rcon
     port = rconPort rcon
     opt = rconProtoOpt rcon
+    processConnection sock addr challenge received = do
+        (respData, respAddr) <- NB.recvFrom sock maxPacketSize
+        let updateChallenge = mapM_ (tryPutMVar challenge) (parseChallenge respData)
+        let updateData = mapM_ (writeChan received) (parseRcon respData)
+        when (respAddr == addr) (updateChallenge >> updateData)
 
 
 -- | Close connection
 close :: RconConnection -> IO ()
-close = N.close . connSocket
+close rcon = do
+    finally (N.close $ connSocket rcon) (killThread $ connReceiveTid rcon)
 
--- | Sends rcon command via `RconConnection`
-send :: RconConnection -> B.ByteString -> IO ()
-send conn command = void $ NBL.sendAll (connSocket conn) =<< rconPacket
+
+getChallenge :: RconConnection -> IO (Maybe B.ByteString)
+getChallenge rcon = do
+    info <- readIORef $ connInfo rcon
+    retry (rconChallengeRetries info) (rconChallengeTimeout info) unreliableChallenge
+  where
+    retry count tval func
+        | count > 0 = do
+            val <- timeout tval func
+            case val of
+                Just _  -> return val
+                Nothing -> retry (count - 1) tval func
+        | otherwise = return Nothing
+    unreliableChallenge = do
+        void $ NB.send (connSocket rcon) challengePacket
+        takeMVar $ connChallengeM rcon
+
+
+-- | Sends rcon command via `RconConnection`. Returns True if command was sent.
+send :: RconConnection -> B.ByteString -> IO Bool
+send conn command = do
+    maybePacket <- rconPacket
+    case maybePacket of
+        Just packet -> NBL.sendAll (connSocket conn) packet >> return True
+        Nothing -> return False
   where
     rconNonsec rcon = rconNonSecurePacket (rconPassword rcon) command
     rconSecTime rcon = do
         cur_time <- getPOSIXTime
         let send_time = realToFrac cur_time + fromIntegral (rconTimeDiff rcon) :: Double
         return $ rconSecureTimePacket send_time (rconPassword rcon) command
-    rconSecChallange rcon = do
-        challange <- getChallange conn
-        return $ rconSecureChallangePacket challange (rconPassword rcon) command
+    rconSecChallenge rcon = do
+        maybeChallenge <- getChallenge conn
+        case maybeChallenge of
+            Just challenge -> return $ Just $ rconSecureChallengePacket challenge (rconPassword rcon) command
+            Nothing -> return Nothing
     rconPacket = do
         rcon <- readIORef $ connInfo conn
         case rconMode rcon of
-            NonSecureRcon -> return $ rconNonsec rcon
-            TimeSecureRcon -> rconSecTime rcon
-            ChallangeSecureRcon -> rconSecChallange rcon
+            NonSecureRcon -> return $ Just $ rconNonsec rcon
+            TimeSecureRcon -> Just <$> rconSecTime rcon
+            ChallengeSecureRcon -> rconSecChallenge rcon
 
--- | Receive packet and tries parse it as rcon packet.
--- If succeeds returns Right ByteString with parsed response 
--- else returns Left ByteString with raw packet
-recv :: RconConnection -> IO (Either B.ByteString B.ByteString)
-recv conn = do
-    resp <- NB.recv sock maxPacketSize
-    return $ maybe (Left resp) Right $ parseRcon resp
-  where
-    sock = connSocket conn
 
 -- | Waits for rcon packet and return parsed response.
 -- if parsing fails it discard packet and waits another.
-recvRcon :: RconConnection -> IO B.ByteString
-recvRcon conn = do
-    e_resp <- recv conn
-    either (const $ recvRcon conn) return e_resp
+recv :: RconConnection -> IO B.ByteString
+recv = readChan . connReceivedC
 
 
 socketStr :: RconConnection -> IO B.ByteString
@@ -176,16 +204,16 @@ disableLogStr rc = BC.append log_begin <$> socketStr rc
 
 -- | Send rcon command for activating rcon log.
 -- This feature will not work over NAT
-enableLog :: RconConnection -> IO ()
+enableLog :: RconConnection -> IO Bool
 enableLog c = send c =<< enableLogStr c
 
 -- | Opposite action for `enableLog`
-disableLog :: RconConnection -> IO ()
+disableLog :: RconConnection -> IO Bool
 disableLog c = send c =<< disableLogStr c
 
 
 setParam :: RconConnection -> (RconInfo -> RconInfo) -> IO ()
-setParam c f = atomicModifyIORef (connInfo c) $ \r -> (f r, ())
+setParam c f = atomicModifyIORef' (connInfo c) $ \r -> (f r, ())
 
 
 getParam :: RconConnection -> (RconInfo -> a) -> IO a
@@ -222,3 +250,19 @@ getHost c = getParam c rconHost
 
 getPort :: RconConnection -> IO ServiceName
 getPort c = getParam c rconPort
+
+
+setChallengeTimeout :: RconConnection -> Int -> IO ()
+setChallengeTimeout c t = setParam c $ \rcon -> rcon {rconChallengeTimeout=t}
+
+
+getChallengeTimeout :: RconConnection -> IO Int
+getChallengeTimeout c = getParam c rconChallengeTimeout
+
+
+setChallengeRetries:: RconConnection -> Int -> IO ()
+setChallengeRetries c t = setParam c $ \rcon -> rcon {rconChallengeRetries=t}
+
+
+getChallengeRetries:: RconConnection -> IO Int
+getChallengeRetries c = getParam c rconChallengeRetries

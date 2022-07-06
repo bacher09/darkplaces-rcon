@@ -40,7 +40,7 @@ spec = do
             ":he" `cmdShouldBe` Help
             ":help" `cmdShouldBe` Help
             -- help takes no argumens
-            ":help haha" `cmdShouldErr` (CommandTakesNoArgumens ":help" "haha")
+            ":help haha" `cmdShouldErr` CommandTakesNoArgumens ":help" "haha"
 
         it "check : internal command" $ do
             ":" `cmdShouldBe` RepeatLast
@@ -48,44 +48,44 @@ spec = do
             " : " `cmdShouldBe` RepeatLast
             "\t :" `cmdShouldBe` RepeatLast
             -- : takes no argumens
-            ": help" `cmdShouldErr` (CommandTakesNoArgumens ":" "help")
+            ": help" `cmdShouldErr` CommandTakesNoArgumens ":" "help"
 
         it "check :login internal command" $ do
             ":login" `cmdShouldBe` Login
             " :l" `cmdShouldBe` Login
             ":lo" `cmdShouldBe` Login
             " :log " `cmdShouldBe` Login
-            ":l ogin" `cmdShouldErr` (CommandTakesNoArgumens ":login" "ogin")
+            ":l ogin" `cmdShouldErr` CommandTakesNoArgumens ":login" "ogin"
 
         it "check :version internal command" $ do
             ":version" `cmdShouldBe` Version
 
         it "check :history internal command" $ do
-            ":hi" `cmdShouldBe` (History Nothing)
-            ":his" `cmdShouldBe` (History Nothing)
-            ":history" `cmdShouldBe` (History Nothing)
-            ":his 10" `cmdShouldBe` (History $ Just 10)
-            ":history 12 " `cmdShouldBe` (History $ Just 12)
-            ":history -2 " `cmdShouldErr` (WrongArgumentType ":history" "-2")
-            ":history 2 4 " `cmdShouldErr` (WrongArgumentType ":history" "2 4")
-            ":history 2.4 " `cmdShouldErr` (WrongArgumentType ":history" "2.4")
-            ":history test " `cmdShouldErr` (WrongArgumentType ":history" "test")
+            ":hi" `cmdShouldBe` History Nothing
+            ":his" `cmdShouldBe` History Nothing
+            ":history" `cmdShouldBe` History Nothing
+            ":his 10" `cmdShouldBe` History (Just 10)
+            ":history 12 " `cmdShouldBe` History (Just 12)
+            ":history -2 " `cmdShouldErr` WrongArgumentType ":history" "-2"
+            ":history 2 4 " `cmdShouldErr` WrongArgumentType ":history" "2 4"
+            ":history 2.4 " `cmdShouldErr` WrongArgumentType ":history" "2.4"
+            ":history test " `cmdShouldErr` WrongArgumentType ":history" "test"
 
         it "check :set internal command" $ do
             ":set" `cmdShouldBe` ListVars
             ":s" `cmdShouldBe` ListVars
-            ":set mode" `cmdShouldBe` (Show Mode)
-            ":set mode 2" `cmdShouldBe` (Set $ SetMode ChallangeSecureRcon)
-            ":set mode 1" `cmdShouldBe` (Set $ SetMode TimeSecureRcon)
-            ":set mode 0" `cmdShouldBe` (Set $ SetMode NonSecureRcon)
+            ":set mode" `cmdShouldBe` Show Mode
+            ":set mode 2" `cmdShouldBe` Set (SetMode ChallengeSecureRcon)
+            ":set mode 1" `cmdShouldBe` Set (SetMode TimeSecureRcon)
+            ":set mode 0" `cmdShouldBe` Set (SetMode NonSecureRcon)
 
-            ":set color no" `cmdShouldBe` (Set $ SetColor False)
-            ":set color 0" `cmdShouldBe` (Set $ SetColor False)
-            ":set color n" `cmdShouldBe` (Set $ SetColor False)
-            ":s color false" `cmdShouldBe` (Set $ SetColor False)
-            ":se color yes" `cmdShouldBe` (Set $ SetColor True)
+            ":set color no" `cmdShouldBe` Set (SetColor False)
+            ":set color 0" `cmdShouldBe` Set (SetColor False)
+            ":set color n" `cmdShouldBe` Set (SetColor False)
+            ":s color false" `cmdShouldBe` Set (SetColor False)
+            ":se color yes" `cmdShouldBe` Set (SetColor True)
 
-            ":set encoding nexuiz" `cmdShouldBe` (Set $ SetEncoding NexuizDecode)
+            ":set encoding nexuiz" `cmdShouldBe` Set (SetEncoding NexuizDecode)
 
     describe "internalAutoComplete" $ do
         it "check autocomplete of base commands" $ do
@@ -109,8 +109,8 @@ spec = do
             ":s encoding n" `shouldComplete` ["nexuiz"]
 
   where
-    cmdShouldBe cmd_str cmd_res = parseCommand cmd_str `shouldBe` (Right cmd_res)
-    cmdShouldErr cmd_str cmd_res = parseCommand cmd_str `shouldBe` (Left cmd_res)
+    cmdShouldBe cmd_str cmd_res = parseCommand cmd_str `shouldBe` Right cmd_res
+    cmdShouldErr cmd_str cmd_res = parseCommand cmd_str `shouldBe` Left cmd_res
     shouldComplete text res = internalAutoComplete rprev cmd `shouldMatchList` res
       where
         rtext = T.reverse $ T.stripStart text

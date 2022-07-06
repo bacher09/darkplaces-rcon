@@ -9,15 +9,15 @@ import Text.Printf
 
 -- | max Darkplaces packet size
 maxPacketSize :: Int
-maxPacketSize = 1399
+maxPacketSize = 1400
 
 
 quakePacketHeader :: B.ByteString
 quakePacketHeader = B.pack [0xFF, 0xFF, 0xFF, 0xFF]
 
 
-challangePacket :: B.ByteString
-challangePacket = B.append quakePacketHeader $ BC.pack "getchallenge"
+challengePacket :: B.ByteString
+challengePacket = B.append quakePacketHeader $ BC.pack "getchallenge"
 
 
 hmacMD4 :: B.ByteString -> B.ByteString -> B.ByteString
@@ -80,14 +80,14 @@ rconSecureTimePacket t passw command = BB.toLazyByteString builder
                        BB.byteString time_command_str]
 
 -- | generates chalange based secure packet
-rconSecureChallangePacket :: B.ByteString
-                          -- ^ connection's challange
+rconSecureChallengePacket :: B.ByteString
+                          -- ^ connection's challenge
                           -> B.ByteString
                           -- ^ password
                           -> B.ByteString
                           -- ^ command
                           -> BL.ByteString
-rconSecureChallangePacket challenge passw command = BB.toLazyByteString builder
+rconSecureChallengePacket challenge passw command = BB.toLazyByteString builder
   where
     hmac_key = BL.toStrict $ BL.fromChunks [challenge, BC.pack " ", command]
     key = BB.byteString $ hmacMD4 passw hmac_key

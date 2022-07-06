@@ -3,4 +3,8 @@ packages:
     ./darkplaces-rcon
     ./darkplaces-rcon-util
 
+constraints: cryptonite -integer-gmp +integer-simple,
+             bytestring -integer-gmp +integer-simple,
+             text       -integer-gmp +integer-simple
+
 tests: true

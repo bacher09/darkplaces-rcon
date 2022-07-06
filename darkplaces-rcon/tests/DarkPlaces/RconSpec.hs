@@ -4,6 +4,9 @@ module DarkPlaces.RconSpec (
 ) where
 import Test.Hspec
 #ifdef INTEGRATION
+import System.Timeout
+import Control.Monad (void)
+import Data.Maybe
 import DarkPlaces.Rcon
 import qualified Data.ByteString as B
 #else
@@ -20,15 +23,16 @@ spec = do
             c <- connect rcon
             checkResponse c NonSecureRcon
             checkResponse c TimeSecureRcon
-            checkResponse c ChallangeSecureRcon
-            isConnected c `shouldReturn` True
+            checkResponse c ChallengeSecureRcon
+            checkResponse c ChallengeSecureRcon
+            checkResponse c ChallengeSecureRcon
             close c
   where
     checkResponse c mode = do
         setMode c mode
-        send c "status"
-        r <- recvRcon c
-        r `shouldSatisfy` B.isPrefixOf "host:"
+        void $ send c "status"
+        r <- timeout 1500000 $ recv c
+        (fromJust r) `shouldSatisfy` B.isPrefixOf "host:"
 #else
 spec = HC.fromSpecList []
 #endif

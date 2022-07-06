@@ -32,7 +32,8 @@ library
                        DRcon.Paths,
                        DRcon.EvalParser,
                        DRcon.Prompt,
-                       DRcon.Version
+                       DRcon.Version,
+                       DRcon.ConsoleWrapper
 
   other-modules:       DRcon.Polyfills,
                        Paths_darkplaces_rcon_util

@@ -1,3 +1,6 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Main where
 import DRcon.CommandArgs
 import DRcon.ConfigFile
@@ -5,6 +8,7 @@ import DRcon.Paths
 import DRcon.EvalParser
 import DRcon.Prompt
 import DRcon.Version (versionInfo)
+import DRcon.ConsoleWrapper (decoratedConsole)
 import DarkPlaces.Rcon hiding (connect, send, getPassword)
 import qualified DarkPlaces.Rcon as RCON
 import DarkPlaces.Text
@@ -14,14 +18,18 @@ import qualified Data.ByteString.UTF8 as BU
 import Control.Monad.Except
 import System.Console.Haskeline
 import System.Console.Haskeline.History (historyLines)
-import Control.Monad.State.Strict
+import Control.Monad.Reader
+import Control.Monad.State.Class
 import Data.Maybe
 import qualified Data.Text as T
 import Data.Text.Encoding as TE
 import Text.Printf
 import Data.Char (toUpper)
 import Data.Conduit
-import Control.Monad.Catch (handle)
+import Control.Monad.Catch (handle, bracket, MonadMask, MonadCatch, MonadThrow)
+import qualified System.IO as IO
+import Control.Concurrent (forkIO, killThread)
+import Data.IORef
 
 
 data ReplState = ReplState {
@@ -34,12 +42,35 @@ data ReplState = ReplState {
     replName       :: String
 }
 
+newtype StateRefT s m a = StateRefT (ReaderT (IORef s) m a)
+    deriving(Functor, Applicative, Monad, MonadIO, MonadTrans, MonadThrow, MonadCatch, MonadMask)
 
-type Repl m = InputT (StateT ReplState m)
+
+instance MonadIO m => MonadState s (StateRefT s m) where
+    get = StateRefT $ ReaderT $ liftIO . readIORef
+    put x = StateRefT $ ReaderT $ \ref -> liftIO $ atomicWriteIORef ref $! x
 
 
-updateLastCmd :: (Monad m) => InputType -> Repl m ()
-updateLastCmd cmd = lift $ modify (\s -> s {replLastCmd=Just cmd})
+atomicModify :: (MonadIO m) => (s -> s) -> StateRefT s m ()
+atomicModify f = StateRefT $ ReaderT $ \ref -> liftIO $ atomicModifyIORef' ref (\x -> (f x, ()))
+
+getRef :: (Monad m) => StateRefT s m (IORef s)
+getRef = StateRefT ask
+
+type Repl m a = InputT (StateRefT ReplState m) a
+runStateRefT :: (MonadIO m) => s -> StateRefT s m a -> m a
+runStateRefT state (StateRefT fun) = do
+    ref <- liftIO $ newIORef state
+    liftIO $ writeIORef ref state
+    runReaderT fun ref
+
+
+runRepl :: (MonadIO m, MonadMask m) => ReplState -> Settings (StateRefT ReplState m) -> Repl m a -> m a
+runRepl state settings repl = runStateRefT state (runInputT settings repl)
+
+
+updateLastCmd :: (MonadIO m) => InputType -> Repl m ()
+updateLastCmd cmd = lift $ atomicModify (\s -> s {replLastCmd=Just cmd})
 
 
 newPrompt :: String -> (String, Prompt)
@@ -50,30 +81,24 @@ toMicroseconds :: Float -> Int
 toMicroseconds v = round $ v * 1e6
 
 
-printRecv :: RconConnection -> (Float, Bool, DecodeType) -> IO ()
-printRecv con (time, color, enc) = do
-    let stream = rconRecv .| parseDPText .| toUTF enc
-    if color
-        then runConduit $ stream .| outputColorsLn
-        else runConduit $ stream .| outputNoColorsLn
-  where
-    rconRecv :: ConduitT () BU.ByteString IO ()
-    rconRecv = do
-        mdata <- liftIO $ timeout (toMicroseconds time) $ RCON.recvRcon con
-        case mdata of
-            (Just r) -> yield r >> rconRecv
-            Nothing -> return ()
+rconTimeoutConduit :: RconConnection -> Int -> ConduitT () BU.ByteString IO ()
+rconTimeoutConduit con t = do
+    mdata <- liftIO $ timeout t $ RCON.recv con
+    case mdata of
+        (Just r) -> yield r >> rconTimeoutConduit con t
+        Nothing -> return ()
 
 
 rconExec :: DRconArgs -> String -> Bool -> IO ()
-rconExec dargs command color = do
-    con <- RCON.connect (connectInfo dargs)
-    RCON.send con (BU.fromString command)
-    printRecv con (time, color, enc)
-    RCON.close con
+rconExec dargs command color = bracket (RCON.connect $ connectInfo dargs) RCON.close rconIO
   where
     time = drconTimeout dargs
     enc = drconEncoding dargs
+    output = if color then hOutputColorsLn else hOutputNoColorsLn
+    outStream = parseDPText .| toUTF enc .| output IO.stdout
+    rconIO con = do
+        void $ RCON.send con (BU.fromString command)
+        runConduit $ rconTimeoutConduit con (toMicroseconds time) .| outStream
 
 
 getInputLineWithPrompt :: Repl IO (Maybe String)
@@ -87,11 +112,35 @@ getInputLineWithPrompt = do
     getInputLine $ renderPrompt prompt_vars prompt
 
 
+dpLineConduit :: (Eq a) => DPTextFilter a m a
+dpLineConduit = do
+    t <- await
+    case t of
+        Just v -> yield v >> unless (v == DPNewline) dpLineConduit
+        Nothing -> return ()
+
+
+replStart :: Repl IO ()
+replStart = bracket outputLoopStart (liftIO . killThread) $ const replLoop
+  where
+    outputLoopStart = do
+        con <- lift $ gets replConnection
+        handle <- getExternalPrint >>= liftIO . decoratedConsole IO.stdout
+        ref <- lift getRef
+        let dpStream = rconTimeoutConduit con (-1) .| parseDPText
+        liftIO $ forkIO $ runConduit $ dpStream .| fix (\loop -> do
+            state <- liftIO $ readIORef ref
+            let color = replColor state
+                enc = replEncoding state
+                output = if color then hOutputColors else hOutputNoColors
+            dpLineConduit .| toUTF enc .| output handle >> loop)
+
+
 replLoop :: Repl IO ()
 replLoop = handle (\Interrupt -> replLoop) $ withInterrupt $ do
     minput <- getInputLineWithPrompt
     case minput of
-        Nothing    -> lift (replConnection <$> get) >>= liftIO . RCON.close
+        Nothing    -> return ()
         Just input -> case parseCommand input of
             Left e -> do
                 outputStrLn $ show e
@@ -102,11 +151,9 @@ replLoop = handle (\Interrupt -> replLoop) $ withInterrupt $ do
 replAction :: InputType -> Repl IO ()
 replAction cmd = case cmd of
     Empty -> replLoop
-    Quit -> do
-        con <- lift $ replConnection <$> get
-        liftIO $ RCON.close con
+    Quit -> return ()
     RepeatLast -> do
-        last <- lift $ replLastCmd <$> get
+        last <- replLastCmd <$> lift get
         case last of
             Nothing -> outputStrLn noLastCmd >> replLoop
             Just last_cmd -> replAction last_cmd
@@ -119,7 +166,7 @@ replAction cmd = case cmd of
         updateLastCmd cmd
         replLoop
     Show var -> do
-        con <- lift $ replConnection <$> get
+        con <- replConnection <$> lift get
         val <- showVar <$> case var of
             Mode -> liftIO $ SetMode <$> getMode con
             TimeDiff -> liftIO $ SetTimeDiff <$> getTimeDiff con
@@ -132,14 +179,14 @@ replAction cmd = case cmd of
         updateLastCmd cmd
         replLoop
     Set var_set -> do
-        con <- lift $ replConnection <$> get
+        con <- replConnection <$> lift get
         case var_set of
             SetMode mode -> liftIO $ setMode con mode
             SetTimeDiff diff -> liftIO $ setTimeDiff con diff
-            SetTimeout t -> lift $ modify (\s -> s {replTimeout=t})
-            SetEncoding enc -> lift $ modify (\s -> s {replEncoding=enc})
-            SetColor c -> lift $ modify (\s -> s {replColor=c})
-            SetPrompt p -> lift $ modify (\s -> s {replPromp=newPrompt p})
+            SetTimeout t -> lift $ atomicModify (\s -> s {replTimeout=t})
+            SetEncoding enc -> lift $ atomicModify (\s -> s {replEncoding=enc})
+            SetColor c -> lift $ atomicModify (\s -> s {replColor=c})
+            SetPrompt p -> lift $ atomicModify (\s -> s {replPromp=newPrompt p})
 
         updateLastCmd cmd
         replLoop
@@ -149,7 +196,7 @@ replAction cmd = case cmd of
         replLoop
     Login -> do
         pwd <- getPassword Nothing "Password: "
-        con <- lift $ replConnection <$> get
+        con <- replConnection <$> lift get
         case pwd of
             (Just pass) -> liftIO $ RCON.setPassword con (BU.fromString pass)
             Nothing -> return ()
@@ -170,39 +217,35 @@ replAction cmd = case cmd of
     toTitle s = (\(f, e) -> map toUpper f ++ e) $ splitAt 1 s
     rconEval :: BU.ByteString -> Repl IO ()
     rconEval command = do
-        repl_state <- lift get
-        let time = replTimeout repl_state
-            color = replColor repl_state
-            enc = replEncoding repl_state
-            con = replConnection repl_state
-
-        liftIO $ RCON.send con command
-        liftIO $ printRecv con (time, color, enc)
+        -- TODO: implement sending thread
+        con <- lift $  gets replConnection
+        void $ liftIO $ RCON.send con command
 
     noLastCmd = "there is no last command to perform\n" ++
         "use :? for help."
 
 
 rconRepl :: DRconArgs -> Bool -> IO ()
-rconRepl dargs color = do
-    con <- RCON.connect (connectInfo dargs)
-    hist_path <- historyPath
-    let base_settings = defaultSettings {historyFile=Just hist_path,
-                                         autoAddHistory=True}
-    let repl_state = ReplState {replLastCmd=Nothing,
-                                replColor=color,
-                                replTimeout=drconTimeout dargs,
-                                replEncoding=drconEncoding dargs,
-                                replPromp=newPrompt $ drconPrompt dargs,
-                                replConnection=con,
-                                replName=connectName dargs}
-
-    let hline_settings = setComplete comp base_settings
-    evalStateT (runInputT hline_settings replLoop) repl_state
+rconRepl dargs color = bracket (RCON.connect $ connectInfo dargs) RCON.close launchRepl
   where
     compliter prev cmd = return $
-        (simpleCompletion . T.unpack) <$> internalAutoComplete (T.pack prev) (T.pack cmd)
+        simpleCompletion . T.unpack <$> internalAutoComplete (T.pack prev) (T.pack cmd)
     comp = completeWordWithPrev Nothing " \t" compliter
+    launchRepl con = do
+        hist_path <- historyPath
+        let base_settings = defaultSettings {historyFile=Just hist_path, autoAddHistory=True}
+            repl_state = ReplState {
+                replLastCmd=Nothing,
+                replColor=color,
+                replTimeout=drconTimeout dargs,
+                replEncoding=drconEncoding dargs,
+                replPromp=newPrompt $ drconPrompt dargs,
+                replConnection=con,
+                replName=connectName dargs
+            }
+
+        let hline_settings = setComplete comp base_settings
+        runRepl repl_state hline_settings replStart
 
 
 processArgs :: Maybe CommandArgs -> UtilError ()

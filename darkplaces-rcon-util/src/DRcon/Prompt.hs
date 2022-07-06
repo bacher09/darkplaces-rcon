@@ -15,9 +15,8 @@ import Data.Time.LocalTime
 import Control.Monad.Except
 import Data.Time.Format (formatTime)
 import DarkPlaces.Rcon
-import DRcon.Polyfills (readMaybe)
+import DRcon.Polyfills (readMaybe, defaultTimeLocale)
 import DRcon.Version (versionStr, programName)
-import DRcon.Polyfills (defaultTimeLocale)
 
 
 data FormaterToken a = SimpleText a
@@ -88,13 +87,13 @@ simpleParser ('%':x:xs) = case maybeToken of
     Just t -> t : simpleParser xs
     Nothing -> case simpleParser (x:xs) of
         ((SimpleText str):ts) -> SimpleText ('%':str) : ts
-        ts                    -> (SimpleText "%") : ts
+        ts                    -> SimpleText "%" : ts
   where
     maybeToken = SM.lookup x formatSymbolsMap
 
 simpleParser (x:xs) = case simpleParser xs of
     ((SimpleText str):ts) -> SimpleText (x:str) : ts
-    ts                    -> SimpleText (x:[])  : ts
+    ts                    -> SimpleText [x] : ts
 simpleParser "" = []
 
 
@@ -126,7 +125,7 @@ concatEscape = foldr appendEscape ""
 renderToken :: TokenRender
 renderToken (SimpleText a) = escapeChars a
 renderToken t = case SM.lookup t tokensMap of
-    Just c  -> '%':c:[]
+    Just c  -> ['%', c]
     Nothing -> ""
   where
     tokensMap = SM.fromList $ map swap formatSymbols
@@ -154,7 +153,7 @@ parsePrompt = Prompt . simpleParser
 
 
 renderPrompt :: PromptVars -> Prompt -> String
-renderPrompt vars prom = formatPrompt (tokenRenderFrom vars) prom
+renderPrompt vars = formatPrompt (tokenRenderFrom vars)
 
 
 getPromptVars :: String -> RconConnection -> IO PromptVars
