@@ -1,55 +1,64 @@
-This is meta repository for haskell packages that's related
+# darkplaces-rcon (drcon)
+
+This is a meta repository for Haskell packages that's related
 to darkplaces or quakes rcon protocol.
-Currently it contains these packages:
+Currently, it contains two packages:
 
 * darkplaces-rcon &mdash; library for darkplaces rcon protocol
-* [darkplaces-rcon-util][drcon] &mdash; client rcon utility
+* [darkplaces-rcon-util][drcon] &mdash; client rcon utility `drcon`
 
+## Demo
 
-## Building from sources
+![Simple demo][demogif]
 
-These instructions will assume that you want to build all
-repos hosted in this meta-repo.
+Full [demo].
+
+## Building with docker
+
+This is the simplest way to build this project from sources and produces a binary that supposed to be portable across different Linux distributions
+
+```
+git clone --recurse-submodules https://github.com/bacher09/darkplaces-rcon.git
+cd darkplaces-rcon
+mkdir output
+docker build --output=./output
+strip ./output/drcon # optional, strip binary from debug symbols
+```
+Result binary would be in `./output` directory.
+
+## Building manually
+ 
 First you need to install these tools:
 
-* [GHC] >= 7.4 (recommended GHC >= 7.8)
+* [GHC] >= 8.2 (recommended GHC is 9.8)
 * cabal-install &mdash; haskell package manager
-* [Alex] &mdash; haskell lexer generator (same thing as C's lex)
-* C compliller &mdash; required for compiling some dependent packages
+* C compiler &mdash; required for compiling some dependent packages as well as proper header files (e.g. `zlib-dev`, `ncurses-dev`).
 
-Also you can choose easy way and install [Haskell Platform]
-that contains all these components (except C compiler).
+As an option, you can install [ghcup] which can be used to install GHC and cabal:
 
-Now you may create build folder, clone repo and some
-depended repo's and build packages.
+```
+ghcup install ghc 9.8
+ghcup install cabal
+```
 
-    $ mkdir build && cd build
-    $ export BUILD_DIR=$(pwd)
-    $ git clone https://github.com/bacher09/darkplaces-rcon.git
-    $ git clone https://github.com/bacher09/darkplaces-text.git
-    $ cabal sandbox init
-    $ cabal sandbox add-source $BUILD_DIR/darkplaces-rcon/darkplaces-text/
-    $ cabal sandbox add-source $BUILD_DIR/darkplaces-rcon/darkplaces-rcon/
-    $ cabal sandbox add-source $BUILD_DIR/darkplaces-rcon/darkplaces-rcon-util/
+You can also use `ghcup tui` if you prefer text ui.
 
-After this commands you will see folder `.cabal-sandbox` and file `cabal.sandbox.config`.
-Folder `.cabal-sandbox` is place where packages and binaries will be installed after build.
-Now you can build and install these packages.
+Now you can compile package:
 
-    $ cabal install darkplaces-rcon
-    $ cabal install darkplaces-rcon-util
+```
+git clone --recurse-submodules https://github.com/bacher09/darkplaces-rcon.git
+cd darkplaces-rcon
+mkdir output
+cabal install darkplaces-rcon-util --installdir=./output
+```
 
-If you want to reinstall package you can add `--reinstall` flag to cabal.
+Afterward, `output` directory should have a symlink to the compiled binary.
 
-    $ cabal install --reinstall darkplaces-rcon-util
+Now you can check tool [manual][drcon].
 
-You can find binary in `.cabal-sanbox/bin/` folder.
-If you'd like to call `drcon` util without providing full path
-you can add it to yours PATH environment variable.
 
-    $ export PATH=$BUILD_DIR/.cabal-sandbox/bin/:$PATH
-
-[Haskell platform]: https://www.haskell.org/platform/
 [GHC]: https://www.haskell.org/ghc/
-[Alex]: https://www.haskell.org/alex/
 [drcon]: ./darkplaces-rcon-util/README.md
+[ghcup]: https://www.haskell.org/ghcup/install/
+[demogif]: ./darkplaces-rcon-util/demo.gif
+[demo]: https://asciinema.org/a/20146
