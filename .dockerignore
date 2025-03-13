@@ -1,0 +1,8 @@
+.dockerignore
+Dockerfile
+output*
+README.md
+dist-newstyle/
+.git/
+.gitignore
+.gitmodules
