@@ -24,7 +24,7 @@ instance IO.IODevice ConsoleWrapper where
     close _ = return ()
     isTerminal (ConsoleWrapper (h, _)) = IO.hIsTerminalDevice h
     isSeekable (ConsoleWrapper (h, _)) = IO.hIsSeekable h
-    seek (ConsoleWrapper (h, _)) = IO.hSeek h
+    seek (ConsoleWrapper (h, _)) mode val = IO.hSeek h mode val >> return val
     tell (ConsoleWrapper (h, _)) = IO.hTell h
     getSize (ConsoleWrapper (h, _)) = IO.hFileSize h
     setSize (ConsoleWrapper (h, _)) = IO.hSetFileSize h
